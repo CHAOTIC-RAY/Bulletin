@@ -1,13 +1,19 @@
 // Self-contained feed fetch + enrichment for Raadhavalhi.
 // Works in both the Cloudflare Worker and the Node dev server (standard fetch/Response).
 //
-// "Best method per source" strategy:
+// "Best method per source" strategy (mirrors Kora's production scraper):
 //  - Parse RSS/Atom natively (title, link, summary, content:encoded, dates).
 //  - Image: RSS-native (media:content/thumbnail, enclosure, og:image in item)
 //    → if missing, scrape the article page for og:image / twitter:image.
-//  - Full content: use content:encoded when present; for summary-only items,
-//    scrape the article <article>/<p> text (top items only, time-boxed).
+//  - Full content: use content:encoded when present; otherwise scrape the article
+//    page and extract the COMPLETE article via JSON-LD articleBody → Mozilla
+//    Readability (keeps all paragraphs + inline images), with a public-proxy
+//    fallback chain for bot-protected Maldives sites (Edition.mv, Mihaaru).
+//  - All images: hero og:image + every <img> inside the extracted article body.
 //  - Edition.mv & Mihaaru have JSON APIs → used directly for full content + images.
+
+import { Readability } from "@mozilla/readability";
+import { parseHTML } from "linkedom";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -83,39 +89,138 @@ function extractRssImage(block: string, description: string): string | undefined
   return undefined;
 }
 
-function extractArticleText(html: string): string | undefined {
-  // Drop scripts/styles/comments, then prefer <article>, else all <p> blocks.
-  const cleaned = html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<!--[\s\S]*?-->/g, " ");
-  const articleMatch = cleaned.match(/<article[\s\S]*?<\/article>/i);
-  const region = articleMatch ? articleMatch[0] : cleaned;
-  const paras = Array.from(region.matchAll(/<p[\s\S]*?>([\s\S]*?)<\/p>/gi))
-    .map((m) => stripTags(m[1]))
-    .filter((t) => t.length > 40);
-  if (paras.length >= 2) return paras.join("\n\n").slice(0, 6000);
-  const text = stripTags(region).replace(/\s+/g, " ").trim();
-  return text.length > 200 ? text.slice(0, 6000) : undefined;
+// ---- Kora's article-page fetch with a public-proxy fallback chain ----
+const PROXIES = [
+  (u: string) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+];
+
+async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
+  const headers = {
+    "User-Agent": UA,
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+  };
+  try {
+    const res = await fetch(targetUrl, { headers });
+    if (res.ok) {
+      const html = await res.text();
+      if (html && html.length > 600) return html;
+    }
+  } catch {
+    /* fall through to proxies */
+  }
+  for (const mk of PROXIES) {
+    try {
+      const res = await fetch(mk(targetUrl));
+      if (res.ok) {
+        const html = await res.text();
+        if (html && html.length > 600) return html;
+      }
+    } catch {
+      /* try next */
+    }
+  }
+  throw new Error(`Failed to fetch page: ${targetUrl}`);
 }
 
-async function scrapeArticle(url: string): Promise<{ imageUrl?: string; content?: string }> {
+/** JSON-LD <script type="application/ld+json"> with articleBody → full text HTML. */
+function extractJsonLdArticleBody(html: string): string {
   try {
-    const html = await fetchText(url);
-    const og = metaContent(html, "og:image") || metaContent(html, "twitter:image");
-    let imageUrl: string | undefined;
-    if (og) {
-      try {
-        imageUrl = new URL(og, url).toString();
-      } catch {
-        imageUrl = og;
+    const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html))) {
+      const raw = m[1].trim();
+      if (!raw.includes("articleBody")) continue;
+      const data = JSON.parse(raw);
+      const nodes = Array.isArray(data) ? data : [data];
+      for (const node of nodes) {
+        const graph = node["@graph"];
+        const candidates = graph && Array.isArray(graph) ? graph : [node];
+        for (const c of candidates) {
+          const body = c?.articleBody || (typeof c?.article === "string" ? c.article : null);
+          if (body && typeof body === "string" && body.trim().length > 200) {
+            return body
+              .split(/\n{2,}/)
+              .map((b: string) => b.trim())
+              .filter(Boolean)
+              .map((b: string) => `<p>${b.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`)
+              .join("\n");
+          }
+        }
       }
     }
-    if (!imageUrl) imageUrl = firstImageInHtml(html, url);
-    const content = extractArticleText(html);
-    return { imageUrl, content };
   } catch {
-    return {};
+    /* malformed JSON-LD */
+  }
+  return "";
+}
+
+/** Mozilla Readability over a linkedom document → full article HTML (paras + imgs). */
+function extractReadability(html: string, url: string): string {
+  try {
+    const { document } = parseHTML(html);
+    const article = new Readability(document as any).parse();
+    if (article?.content && article.content.replace(/<[^>]*>/g, "").trim().length > 200) {
+      return article.content;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "";
+}
+
+/** Pull every meaningful <img> inside the article body, resolved to absolute URLs. */
+function collectArticleImages(articleHtml: string, baseUrl: string, hero?: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (u?: string) => {
+    if (!u) return;
+    let abs = u;
+    try {
+      abs = new URL(u, baseUrl).toString();
+    } catch {
+      /* keep as-is */
+    }
+    if (seen.has(abs)) return;
+    if (/1x1|pixel|spacer|blank\.gif|tracking|doubleclick|googleadservices/i.test(abs)) return;
+    seen.add(abs);
+    out.push(abs);
+  };
+  if (hero) push(hero);
+  const imgs = articleHtml.match(/<img[^>]+src=["']([^"']+)["']/gi) || [];
+  for (const tag of imgs) {
+    const src = tag.match(/src=["']([^"']+)["']/i)?.[1];
+    push(src);
+  }
+  return out;
+}
+
+async function scrapeArticle(
+  url: string
+): Promise<{ imageUrl?: string; images: string[]; content?: string }> {
+  try {
+    const html = await fetchPageHtmlWithProxies(url);
+    const og = metaContent(html, "og:image") || metaContent(html, "twitter:image");
+    let hero: string | undefined;
+    if (og) {
+      try {
+        hero = new URL(og, url).toString();
+      } catch {
+        hero = og;
+      }
+    }
+    if (!hero) hero = firstImageInHtml(html, url);
+
+    // Full content: JSON-LD articleBody → Readability.
+    let content = extractJsonLdArticleBody(html);
+    if (!content) content = extractReadability(html, url);
+
+    const images = collectArticleImages(content || html, url, hero);
+    return { imageUrl: hero, images, content: content || undefined };
+  } catch {
+    return { images: [] };
   }
 }
 
@@ -301,19 +406,25 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
     raw = parseFeedXml(await fetchText(feedUrl), feedUrl);
   }
 
-  // Enrich top items: fill missing image / full content by scraping the article.
+  // Enrich top items: pull the COMPLETE article (all text + all images) from the
+  // source page when the RSS lacks full content or images. Mirrors Kora's scraper:
+  // JSON-LD articleBody → Mozilla Readability, plus the hero og:image + every
+  // inline image in the article body.
   const enriched = await Promise.all(
     raw.items.slice(0, 15).map(async (it) => {
       let imageUrl = it.imageUrl;
       let content = it.content;
       const needsImage = !imageUrl;
       const needsContent = !content || stripTags(content).length < 200;
+
+      let images: string[] = imageUrl ? [imageUrl] : [];
       if (needsImage || needsContent) {
         const scraped = await scrapeArticle(it.link);
         if (needsImage) imageUrl = scraped.imageUrl || imageUrl;
         if (needsContent && scraped.content) content = scraped.content;
+        // Prefer the full image gallery from the scraped article body.
+        if (scraped.images.length) images = scraped.images;
       }
-      const images = imageUrl ? [imageUrl] : [];
       return {
         id: canonicalId(it.link),
         title: it.title,
@@ -321,7 +432,7 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
         author: it.author,
         summary: it.summary,
         content,
-        imageUrl,
+        imageUrl: imageUrl || images[0],
         images,
         publishedAt: it.publishedAt,
       };

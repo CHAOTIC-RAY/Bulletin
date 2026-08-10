@@ -44,11 +44,21 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
       setPlaying(false);
       return;
     }
-    const text = `${item!.title}. ${item!.summary || ""}`;
+    const fullText = item!.content
+      ? item!.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+      : item!.summary || "";
+    const text = `${item!.title}. ${fullText}`;
     tts.setVoice(narrateLang, "", 1, 1);
     tts.play(text);
     setPlaying(true);
   };
+
+  // Strip scripts/styles and inline event handlers before rendering article HTML.
+  const sanitize = (html: string): string =>
+    html
+      .replace(/<\s*(script|style|iframe|object|embed)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
+      .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "")
+      .replace(/javascript:/gi, "");
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] bg-neutral-50 text-neutral-900 flex flex-col dark:bg-neutral-950 dark:text-white" style={{ height: "100dvh" }}>
@@ -64,10 +74,38 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
 
       <div className="flex-1 overflow-y-auto p-5 max-w-2xl mx-auto w-full">
         <h1 dir={dir} className={`text-2xl font-bold leading-tight mb-4 ${dir === "rtl" ? "font-thaana" : ""}`}>{item.title}</h1>
+
         {item.imageUrl && (
-          <img src={item.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full rounded-xl mb-4" />
+          <img src={item.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full rounded-xl mb-4 object-cover" />
         )}
-        <p dir={textDirection(item.summary || "")} className="text-base leading-relaxed whitespace-pre-wrap">{item.summary}</p>
+
+        {item.content ? (
+          <div
+            dir={dir}
+            className={`prose-reader text-base leading-relaxed ${dir === "rtl" ? "font-thaana text-right" : ""}`}
+            dangerouslySetInnerHTML={{ __html: sanitize(item.content) }}
+          />
+        ) : (
+          <p dir={textDirection(item.summary || "")} className="text-base leading-relaxed whitespace-pre-wrap">{item.summary}</p>
+        )}
+
+        {item.images && item.images.length > 1 && (
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            {item.images.map((img, i) =>
+              i === 0 ? null : (
+                <img
+                  key={i}
+                  src={img}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="w-full h-40 object-cover rounded-lg"
+                  loading="lazy"
+                />
+              )
+            )}
+          </div>
+        )}
+
         <a href={item.link} target="_blank" rel="noopener noreferrer" className="mt-6 inline-block text-amber-600 dark:text-amber-400 underline font-bold">
           {t("reader.open")} →
         </a>
