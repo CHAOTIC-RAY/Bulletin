@@ -81,6 +81,8 @@ export async function synthesizeEdgeTts(
   rate = 0,
   pitch = 0
 ): Promise<Blob> {
+  // `rate`/`pitch` are multipliers around 1.0 (e.g. 1.0 = normal).
+  // The backend converts them to Edge SSML percentages.
   const response = await fetch("/api/tts/edge", {
     method: "POST",
     headers: {
@@ -96,6 +98,9 @@ export async function synthesizeEdgeTts(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    // Surface the real backend error instead of silently degrading to a
+    // monotone fallback voice (which is what made every Edge voice sound
+    // identical). The caller's TTS engine shows this error to the user.
     throw new Error(errorData.error || `Edge TTS backend error (${response.status})`);
   }
 

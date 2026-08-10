@@ -186,8 +186,8 @@ export class HavaaTts {
           const blob = await synthesizeEdgeTts(
             sentence,
             this.edgeVoiceId,
-            this.rate - 1,
-            this.pitch - 1
+            this.rate,
+            this.pitch
           );
 
           if (!this.playing || playId !== this.currentPlayId) return;

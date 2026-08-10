@@ -10,47 +10,31 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Edge TTS Endpoint using WebSocket in Node with Edge Browser Headers & Fallback
+  // Edge TTS Endpoint — Microsoft Edge ReadAloud neural voices.
   app.post("/api/tts/edge", async (req, res) => {
     try {
-      const { text, voiceId, rate = 0, pitch = 0 } = req.body;
+      const { text, voiceId, rate = 1, pitch = 1 } = req.body;
       if (!text || typeof text !== "string") {
         return res.status(400).json({ error: "Text string is required" });
       }
 
-      let audioBuffer: Buffer;
-      try {
-        audioBuffer = await synthesizeEdgeTtsNode(
-          text,
-          voiceId || "en-US-AvaMultilingualNeural",
-          Number(rate) || 0,
-          Number(pitch) || 0
-        );
-      } catch (wsError: any) {
-        // Fallback stream for TTS if edge WS is throttled or unavailable
-        const voiceStr = voiceId || "en-US";
-        const lang = voiceStr.startsWith("ar-") ? "ar" : voiceStr.startsWith("es-") ? "es" : "en";
-        const encodedText = encodeURIComponent(text.slice(0, 500));
-        const fallbackUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${lang}&client=tw-ob`;
+      const audioBuffer = await synthesizeEdgeTtsNode(
+        text,
+        voiceId || "en-US-AvaMultilingualNeural",
+        Number(rate) || 1,
+        Number(pitch) || 1
+      );
 
-        const response = await fetch(fallbackUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          },
-        });
-        if (!response.ok) {
-          throw new Error(`TTS service response error (${response.status})`);
-        }
-        const arrayBuf = await response.arrayBuffer();
-        audioBuffer = Buffer.from(arrayBuf);
-      }
-
-      res.setHeader("Content-Type", "audio/mp3");
+      res.setHeader("Content-Type", "audio/mpeg");
       res.setHeader("Cache-Control", "public, max-age=86400");
       return res.send(audioBuffer);
     } catch (error: any) {
+      // IMPORTANT: do NOT silently fall back to a single monotone voice here.
+      // That fallback made every Edge voice sound identical. Instead report the
+      // real failure so the client UI can surface it and the user can switch to
+      // the Piper engine (which is fully local and always works offline).
       console.error("Edge TTS Backend Error:", error);
-      return res.status(500).json({ error: error?.message || "Edge TTS synthesis failed" });
+      return res.status(502).json({ error: error?.message || "Edge TTS synthesis failed" });
     }
   });
 
@@ -164,9 +148,14 @@ function synthesizeEdgeTtsNode(
         });
         ws.send(configHeader + configBody);
 
-        // SSML formatting
-        const rateStr = `${rate >= 0 ? "+" : ""}${Math.round(rate * 100)}%`;
-        const pitchStr = `${pitch >= 0 ? "+" : ""}${Math.round(pitch * 50)}Hz`;
+        // `rate`/`pitch` arrive as multipliers (1.0 === normal). Convert to
+        // Edge SSML: rate is a percentage of 1.0 (0.5 -> 50%, 1.5 -> 150%),
+        // pitch is a signed Hz offset from 0 (1.0 -> +0Hz, 1.2 -> +10Hz,
+        // 0.8 -> -10Hz, clamped to Edge's -100..+100Hz range).
+        const ratePct = Math.max(0, Math.round(rate * 100));
+        const rateStr = `${ratePct}%`;
+        const pitchHz = Math.max(-100, Math.min(100, Math.round((pitch - 1) * 100)));
+        const pitchStr = `${pitchHz >= 0 ? "+" : ""}${pitchHz}Hz`;
         const cleanText = text
           .replace(/&/g, "&amp;")
           .replace(/</g, "&lt;")

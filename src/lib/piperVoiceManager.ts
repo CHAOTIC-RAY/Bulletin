@@ -1,18 +1,21 @@
 // Piper TTS Voice Pack Manager & ONNX Neural Synthesizer
-// Uses @diffusionstudio/vits-web under the hood for highly optimized in-browser speech synthesis.
+// Uses @diffusionstudio/vits-web. `predict()` returns a WAV Blob; we decode it
+// into an AudioBuffer with the Web Audio API so playback is sample-accurate and
+// every voice pack is selectable.
 
 import { predict, stored, remove, download } from "@diffusionstudio/vits-web";
 
 export interface PiperVoicePack {
-  id: string; // e.g. "ryan-high"
+  id: string; // stable UI id, e.g. "ryan-high"
   name: string; // e.g. "Ryan (High)"
-  key: string; // e.g. "en_US-ryan-high"
+  key: string; // vits-web voiceId, e.g. "en_US-ryan-high"
   lang: string; // e.g. "en-US"
   quality: "high" | "medium" | "low";
   sizeMB: number;
   description: string;
 }
 
+// Keys here are the REAL vits-web voiceIds (verified against tts.voices()).
 export const PIPER_VOICE_PACKS: PiperVoicePack[] = [
   {
     id: "ryan-high",
@@ -20,7 +23,7 @@ export const PIPER_VOICE_PACKS: PiperVoicePack[] = [
     key: "en_US-ryan-high",
     lang: "en-US",
     quality: "high",
-    sizeMB: 62,
+    sizeMB: 114,
     description: "Deep, crisp male American voice with rich natural cadence.",
   },
   {
@@ -29,7 +32,7 @@ export const PIPER_VOICE_PACKS: PiperVoicePack[] = [
     key: "en_US-ljspeech-high",
     lang: "en-US",
     quality: "high",
-    sizeMB: 63,
+    sizeMB: 114,
     description: "Classic high quality female narrator, clear & expressive.",
   },
   {
@@ -38,7 +41,7 @@ export const PIPER_VOICE_PACKS: PiperVoicePack[] = [
     key: "en_US-lessac-high",
     lang: "en-US",
     quality: "high",
-    sizeMB: 61,
+    sizeMB: 113,
     description: "Neutral, authoritative American news presenter voice.",
   },
   {
@@ -47,7 +50,7 @@ export const PIPER_VOICE_PACKS: PiperVoicePack[] = [
     key: "en_GB-alan-medium",
     lang: "en-GB",
     quality: "medium",
-    sizeMB: 28,
+    sizeMB: 63,
     description: "Refined British English narrator voice.",
   },
 ];
@@ -56,7 +59,7 @@ export async function isVoiceDownloaded(packId: string): Promise<boolean> {
   try {
     const pack = PIPER_VOICE_PACKS.find((p) => p.id === packId) || PIPER_VOICE_PACKS[0];
     const storedVoices = await stored();
-    return storedVoices.includes(pack.key);
+    return (storedVoices as string[]).includes(pack.key);
   } catch (err) {
     console.error("Error checking stored voices:", err);
     return false;
@@ -66,7 +69,7 @@ export async function isVoiceDownloaded(packId: string): Promise<boolean> {
 export async function deleteVoicePack(packId: string): Promise<void> {
   const pack = PIPER_VOICE_PACKS.find((p) => p.id === packId) || PIPER_VOICE_PACKS[0];
   try {
-    await remove(pack.key);
+    await remove(pack.key as any);
   } catch (err) {
     console.error("Error removing voice pack:", err);
     throw err;
@@ -78,7 +81,7 @@ export async function downloadVoicePack(
   onProgress?: (progress: number) => void
 ): Promise<void> {
   try {
-    await download(pack.key, (progress: any) => {
+    await download(pack.key as any, (progress: any) => {
       if (onProgress && progress && typeof progress === "object" && "loaded" in progress && "total" in progress) {
         const pct = Math.round((progress.loaded / progress.total) * 100);
         onProgress(pct);
@@ -92,25 +95,42 @@ export async function downloadVoicePack(
   }
 }
 
+/** Decode a WAV Blob into an AudioBuffer using a shared AudioContext. */
+async function blobToAudioBuffer(blob: Blob): Promise<AudioBuffer> {
+  const arrayBuffer = await blob.arrayBuffer();
+  const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+  const ctx: AudioContext = new Ctx();
+  try {
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+    return audioBuffer;
+  } finally {
+    // Free the temporary context promptly.
+    if (ctx.state !== "closed") ctx.close().catch(() => {});
+  }
+}
+
 export async function synthesizePiperAudio(
   text: string,
   packId: string,
-  onProgress?: (pct: number) => void
+  _onProgress?: (pct: number) => void
 ): Promise<AudioBuffer> {
   const pack = PIPER_VOICE_PACKS.find((p) => p.id === packId) || PIPER_VOICE_PACKS[0];
   try {
-    // Predict returns the standard AudioBuffer directly!
-    const audioBuffer = await predict({
-      text,
-      voiceId: pack.key,
-    }, (progress: any) => {
-      if (onProgress && typeof progress === "number") {
-        onProgress(Math.round(progress * 100));
+    // predict() returns a WAV Blob (NOT an AudioBuffer).
+    const wavBlob: Blob = await predict(
+      { text, voiceId: pack.key } as any,
+      (progress: any) => {
+        if (_onProgress && typeof progress === "number") {
+          _onProgress(Math.round(progress * 100));
+        }
       }
-    });
-    return audioBuffer;
+    );
+    if (!wavBlob || wavBlob.size === 0) {
+      throw new Error(`Piper returned empty audio for "${pack.name}"`);
+    }
+    return await blobToAudioBuffer(wavBlob);
   } catch (err) {
-    console.error("Error synthesizing audio with vits-web:", err);
+    console.error(`Error synthesizing audio with Piper (${pack.name}):`, err);
     throw err;
   }
 }
