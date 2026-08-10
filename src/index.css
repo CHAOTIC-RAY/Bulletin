@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #0a0a0a;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hide scrollbars for the immersive feed */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Dhivehi (Thaana) font fallback */
+.font-thaana {
+  font-family: "MV Boli", "Faruma", "ThaanaFonts", "Microsoft Uighur", "Noto Nastaliq Urdu", serif;
+}
+
+/* Ken Burns motion for single-image hero (dimension-aware in component) */
+@keyframes kbZoomIn {
+  0% { transform: scale(1.04); }
+  100% { transform: scale(1.16); }
+}
+@keyframes kbZoomOut {
+  0% { transform: scale(1.16); }
+  100% { transform: scale(1.04); }
+}
+@keyframes kbPanX {
+  0% { transform: scale(1.12) translateX(-3.5%); }
+  100% { transform: scale(1.12) translateX(3.5%); }
+}
+@keyframes kbPanY {
+  0% { transform: scale(1.12) translateY(-3.5%); }
+  100% { transform: scale(1.12) translateY(3.5%); }
+}
+.kb {
+  animation-duration: 22s;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-timing-function: ease-in-out;
+  will-change: transform;
+  transform-origin: center center;
+}
+.kb-zi { animation-name: kbZoomIn; }
+.kb-zo { animation-name: kbZoomOut; }
+.kb-px { animation-name: kbPanX; }
+.kb-py { animation-name: kbPanY; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kb { animation: none !important; transform: scale(1.05) !important; }
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

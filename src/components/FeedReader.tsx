@@ -1,0 +1,84 @@
+import React, { useEffect, useRef, useState } from "react";
+import type { FeedItem } from "../lib/feedStorage";
+import { textDirection } from "../lib/textDirection";
+import { HavaaTts } from "../lib/ttsPlayer";
+import { t, getLocale } from "../lib/i18n";
+import { createPortal } from "react-dom";
+
+interface Props {
+  item: FeedItem | null;
+  narrateLang: string;
+  onClose: () => void;
+}
+
+export default function FeedReader({ item, narrateLang, onClose }: Props) {
+  const ttsRef = useRef<HavaaTts | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [subtitle, setSubtitle] = useState("");
+
+  useEffect(() => {
+    return () => {
+      ttsRef.current?.stop();
+    };
+  }, []);
+
+  if (!item) return null;
+  const dir = textDirection(item.title);
+  const locale = getLocale();
+
+  const ensureTts = () => {
+    if (!ttsRef.current) {
+      ttsRef.current = new HavaaTts({
+        onSubtitle: setSubtitle,
+        onEnded: () => setPlaying(false),
+        onError: () => setPlaying(false),
+      });
+    }
+    return ttsRef.current;
+  };
+
+  const toggleListen = () => {
+    const tts = ensureTts();
+    if (playing) {
+      tts.stop();
+      setPlaying(false);
+      return;
+    }
+    const text = `${item!.title}. ${item!.summary || ""}`;
+    tts.setVoice(narrateLang, "", 1, 1);
+    tts.play(text);
+    setPlaying(true);
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-neutral-50 text-neutral-900 flex flex-col dark:bg-neutral-950 dark:text-white" style={{ height: "100dvh" }}>
+      <div className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10">
+        <button onClick={onClose} className="p-2 rounded-full bg-black/5 dark:bg-white/10">{t("reader.back")}</button>
+        <span className="text-[10px] font-bold uppercase tracking-widest truncate max-w-[50%]">{item.subscriptionTitle}</span>
+        <div className="flex gap-2">
+          <button onClick={toggleListen} className="px-3 py-1.5 rounded-full bg-amber-500 text-black text-xs font-bold">
+            {playing ? `⏸ ${t("reader.stop")}` : `▶ ${t("reader.listen")}`}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-5 max-w-2xl mx-auto w-full">
+        <h1 dir={dir} className={`text-2xl font-bold leading-tight mb-4 ${dir === "rtl" ? "font-thaana" : ""}`}>{item.title}</h1>
+        {item.imageUrl && (
+          <img src={item.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full rounded-xl mb-4" />
+        )}
+        <p dir={textDirection(item.summary || "")} className="text-base leading-relaxed whitespace-pre-wrap">{item.summary}</p>
+        <a href={item.link} target="_blank" rel="noopener noreferrer" className="mt-6 inline-block text-amber-600 dark:text-amber-400 underline font-bold">
+          {t("reader.open")} →
+        </a>
+      </div>
+
+      {playing && (
+        <div className="p-4 border-t border-black/10 dark:border-white/10 text-center text-sm italic bg-amber-50 dark:bg-amber-950/30">
+          {subtitle || "…"}
+        </div>
+      )}
+    </div>,
+    document.body
+  );
+}
