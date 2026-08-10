@@ -97,11 +97,11 @@ export async function synthesizeEdgeTts(
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
+    const errorData = (await response.json().catch(() => ({}))) as { error?: string };
     // Surface the real backend error instead of silently degrading to a
     // monotone fallback voice (which is what made every Edge voice sound
     // identical). The caller's TTS engine shows this error to the user.
-    throw new Error(errorData.error || `Edge TTS backend error (${response.status})`);
+    throw new Error(errorData?.error || `Edge TTS backend error (${response.status})`);
   }
 
   return await response.blob();

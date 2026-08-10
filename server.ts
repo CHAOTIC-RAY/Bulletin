@@ -1,8 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import WebSocket from "ws";
-import crypto from "crypto";
+import { synthesizeEdgeTts } from "./src/lib/edgeTtsCore";
 
 async function startServer() {
   const app = express();
@@ -11,6 +10,8 @@ async function startServer() {
   app.use(express.json());
 
   // Edge TTS Endpoint — Microsoft Edge ReadAloud neural voices.
+  // Uses the shared Web-API implementation so behavior is identical in dev and
+  // in the Cloudflare Worker (src/worker.ts).
   app.post("/api/tts/edge", async (req, res) => {
     try {
       const { text, voiceId, rate = 1, pitch = 1 } = req.body;
@@ -18,16 +19,16 @@ async function startServer() {
         return res.status(400).json({ error: "Text string is required" });
       }
 
-      const audioBuffer = await synthesizeEdgeTtsNode(
+      const { audio, contentType } = await synthesizeEdgeTts(
         text,
         voiceId || "en-US-AvaMultilingualNeural",
         Number(rate) || 1,
         Number(pitch) || 1
       );
 
-      res.setHeader("Content-Type", "audio/mpeg");
+      res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=86400");
-      return res.send(audioBuffer);
+      return res.send(Buffer.from(audio));
     } catch (error: any) {
       // IMPORTANT: do NOT silently fall back to a single monotone voice here.
       // That fallback made every Edge voice sound identical. Instead report the
@@ -49,7 +50,7 @@ async function startServer() {
       const response = await fetch(decodedUrl, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "application/xml, text/xml, */*",
+          Accept: "application/xml, text/xml, */*",
         },
       });
       if (!response.ok) {
@@ -85,129 +86,6 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server listening on http://0.0.0.0:${PORT}`);
-  });
-}
-
-function synthesizeEdgeTtsNode(
-  text: string,
-  voiceName: string,
-  rate: number,
-  pitch: number
-): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    try {
-      const getSecMsGec = () => {
-        const unixSeconds = BigInt(Math.floor(Date.now() / 1000));
-        const winSeconds = unixSeconds + 11644473600n;
-        const ticks = winSeconds * 10000000n;
-        const roundedTicks = ticks - (ticks % 3000000000n);
-        const str = `${roundedTicks.toString()}6A5AA1D4EA5E40C2A50C31566324F754`;
-        return crypto.createHash("sha256").update(str, "ascii").digest("hex").toUpperCase();
-      };
-
-      const secMsGec = getSecMsGec();
-      const EDGE_WS_URL = `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EA5E40C2A50C31566324F754&Sec-MS-GEC=${secMsGec}`;
-
-      const headers: Record<string, string> = {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
-        "Origin": "chrome-extension://jdiccldimpdaibipbdpmicdbmmoiclib",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Pragma": "no-cache",
-        "Cache-Control": "no-cache",
-        "Sec-MS-GEC": secMsGec,
-        "Sec-MS-GEC-Version": "1-130.0.0.0",
-      };
-
-      const ws = new WebSocket(EDGE_WS_URL, { headers });
-      const reqId = crypto.randomBytes(16).toString("hex");
-      const audioChunks: Buffer[] = [];
-
-      const timeout = setTimeout(() => {
-        try {
-          ws.close();
-        } catch {}
-        reject(new Error("Edge TTS request timed out"));
-      }, 15000);
-
-      ws.on("open", () => {
-        const timestamp = new Date().toISOString();
-
-        // Send speech config header
-        const configHeader = `X-Timestamp:${timestamp}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n`;
-        const configBody = JSON.stringify({
-          context: {
-            synthesis: {
-              audio: {
-                metadataversion: "2020-02-20",
-                format: "audio-24khz-48kbitrate-mono-mp3",
-              },
-            },
-          },
-        });
-        ws.send(configHeader + configBody);
-
-        // `rate`/`pitch` arrive as multipliers (1.0 === normal). Convert to
-        // Edge SSML: rate is a percentage of 1.0 (0.5 -> 50%, 1.5 -> 150%),
-        // pitch is a signed Hz offset from 0 (1.0 -> +0Hz, 1.2 -> +10Hz,
-        // 0.8 -> -10Hz, clamped to Edge's -100..+100Hz range).
-        const ratePct = Math.max(0, Math.round(rate * 100));
-        const rateStr = `${ratePct}%`;
-        const pitchHz = Math.max(-100, Math.min(100, Math.round((pitch - 1) * 100)));
-        const pitchStr = `${pitchHz >= 0 ? "+" : ""}${pitchHz}Hz`;
-        const cleanText = text
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-
-        const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-  <voice name='${voiceName}'>
-    <prosody pitch='${pitchStr}' rate='${rateStr}'>${cleanText}</prosody>
-  </voice>
-</speak>`;
-
-        const ssmlHeader = `X-RequestId:${reqId}\r\nX-Timestamp:${timestamp}\r\nContent-Type:application/ssml+xml\r\nPath:ssml\r\n\r\n`;
-        ws.send(ssmlHeader + ssml);
-      });
-
-      ws.on("message", (data: WebSocket.Data, isBinary: boolean) => {
-        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as any);
-        if (!isBinary) {
-          const str = buf.toString("utf-8");
-          if (str.includes("Path:turn.end")) {
-            clearTimeout(timeout);
-            try {
-              ws.close();
-            } catch {}
-            if (audioChunks.length === 0) {
-              return reject(new Error("No audio payload received from Edge TTS"));
-            }
-            resolve(Buffer.concat(audioChunks));
-          }
-        } else {
-          if (buf.length > 2) {
-            const headerLength = buf.readUInt16BE(0);
-            if (buf.length >= 2 + headerLength) {
-              const headerStr = buf.subarray(2, 2 + headerLength).toString("utf-8");
-              if (headerStr.includes("Path:audio")) {
-                const audioData = buf.subarray(2 + headerLength);
-                if (audioData.length > 0) {
-                  audioChunks.push(audioData);
-                }
-              }
-            }
-          }
-        }
-      });
-
-      ws.on("error", (err) => {
-        clearTimeout(timeout);
-        reject(err);
-      });
-    } catch (err) {
-      reject(err);
-    }
   });
 }
 

@@ -105,7 +105,7 @@ export async function fetchFeed(sub: FeedSubscription): Promise<FeedItem[]> {
   try {
     const res = await fetch(RSS_PROXY + encodeURIComponent(sub.feedUrl));
     if (!res.ok) return [];
-    const json = await res.json();
+    const json: any = await res.json();
     if (json.status !== "ok") return [];
     return parseFeedJson(json, sub);
   } catch {
@@ -125,7 +125,7 @@ export async function collectArticleImages(link: string, summaryImages: string[]
   try {
     const res = await fetch(RSS_PROXY + encodeURIComponent(link));
     if (!res.ok) return out.slice(0, 6);
-    const json = await res.json();
+    const json: any = await res.json();
     const html: string = json?.items?.[0]?.content || json?.feed?.description || "";
     const imgs = (html.match(/<img[^>]+src=["']([^"']+)["']/gi) || [])
       .map((m: string) => (m.match(/src=["']([^"']+)["']/i) || [])[1])
