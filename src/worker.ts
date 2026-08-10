@@ -76,6 +76,27 @@ async function handleApi(request: Request): Promise<Response> {
     }
   }
 
+  // Enriched feed: fetch + parse + per-source image/content enrichment.
+  if (url.pathname === "/api/feed/fetch" && request.method === "GET") {
+    const target = url.searchParams.get("url");
+    if (!target) {
+      return Response.json({ error: "URL is required" }, { status: 400 });
+    }
+    try {
+      const { fetchEnrichedFeed } = await import("./lib/feedEnrich");
+      const feed = await fetchEnrichedFeed(decodeURIComponent(target));
+      return new Response(JSON.stringify(feed), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=300",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    } catch (error: any) {
+      return Response.json({ error: error?.message || "Feed enrichment failed" }, { status: 502 });
+    }
+  }
+
   return Response.json({ error: "Not found" }, { status: 404 });
 }
 

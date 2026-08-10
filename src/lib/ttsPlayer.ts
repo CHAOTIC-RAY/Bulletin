@@ -1,4 +1,4 @@
-// Unified Havaa TTS Engine
+// Unified Raadhavalhi TTS Engine
 // Supports WebSpeech, Piper TTS (High Voice Packs), and Edge TTS (openai-edge-tts style)
 
 import { synthesizePiperAudio, PIPER_VOICE_PACKS } from "./piperVoiceManager";
@@ -18,7 +18,7 @@ function splitSentences(text: string): string[] {
   return (text.match(/[^.!?…]+[.!?…]+|[^.!?…]+$/g) || [text]).map((s) => s.trim()).filter(Boolean);
 }
 
-export class HavaaTts {
+export class RaadhavalhiTts {
   private cb: TtsCallbacks = {};
   private engine: TtsEngineType = "piper";
   private piperPackId = "ryan-high";
@@ -42,19 +42,19 @@ export class HavaaTts {
 
   public loadSettings() {
     if (typeof localStorage !== "undefined") {
-      const savedEngine = localStorage.getItem("havaa_tts_engine") as TtsEngineType;
+      const savedEngine = localStorage.getItem("raadhavalhi_tts_engine") as TtsEngineType;
       if (savedEngine) this.engine = savedEngine;
 
-      const savedPiper = localStorage.getItem("havaa_piper_voice");
+      const savedPiper = localStorage.getItem("raadhavalhi_piper_voice");
       if (savedPiper) this.piperPackId = savedPiper;
 
-      const savedEdge = localStorage.getItem("havaa_edge_voice");
+      const savedEdge = localStorage.getItem("raadhavalhi_edge_voice");
       if (savedEdge) this.edgeVoiceId = savedEdge;
 
-      const savedRate = localStorage.getItem("havaa_tts_rate");
+      const savedRate = localStorage.getItem("raadhavalhi_tts_rate");
       if (savedRate) this.rate = parseFloat(savedRate);
 
-      const savedPitch = localStorage.getItem("havaa_tts_pitch");
+      const savedPitch = localStorage.getItem("raadhavalhi_tts_pitch");
       if (savedPitch) this.pitch = parseFloat(savedPitch);
     }
   }
@@ -75,9 +75,9 @@ export class HavaaTts {
     this.webSpeechLang = webSpeechLang;
 
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem("havaa_tts_engine", engine);
-      if (piperPackId) localStorage.setItem("havaa_piper_voice", piperPackId);
-      if (edgeVoiceId) localStorage.setItem("havaa_edge_voice", edgeVoiceId);
+      localStorage.setItem("raadhavalhi_tts_engine", engine);
+      if (piperPackId) localStorage.setItem("raadhavalhi_piper_voice", piperPackId);
+      if (edgeVoiceId) localStorage.setItem("raadhavalhi_edge_voice", edgeVoiceId);
     }
   }
 

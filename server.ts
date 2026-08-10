@@ -39,6 +39,24 @@ async function startServer() {
     }
   });
 
+  // Enriched feed: fetch + parse + per-source image/content enrichment.
+  app.get("/api/feed/fetch", async (req, res) => {
+    try {
+      const { url } = req.query;
+      if (!url || typeof url !== "string") {
+        return res.status(400).json({ error: "URL is required" });
+      }
+      const { fetchEnrichedFeed } = await import("./src/lib/feedEnrich");
+      const feed = await fetchEnrichedFeed(decodeURIComponent(url));
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Cache-Control", "public, max-age=300");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      return res.send(JSON.stringify(feed));
+    } catch (error: any) {
+      return res.status(502).json({ error: error?.message || "Feed enrichment failed" });
+    }
+  });
+
   // RSS Feed XML Proxy to bypass client CORS and Al Jazeera Cloudflare blocks
   app.get("/api/feed-proxy", async (req, res) => {
     try {

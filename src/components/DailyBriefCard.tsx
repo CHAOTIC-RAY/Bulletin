@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import type { FeedItem } from "../lib/feedStorage";
 import { buildDailyBrief, BriefArticleInput } from "../lib/generateNewsBrief";
-import { HavaaTts } from "../lib/ttsPlayer";
+import { RaadhavalhiTts } from "../lib/ttsPlayer";
 import { t, getLocale } from "../lib/i18n";
 import { createPortal } from "react-dom";
 
@@ -27,7 +27,7 @@ export default function DailyBriefCard({ items, narrateLang }: Props) {
     return buildDailyBrief(articles, dayKey(today));
   }, [items]);
 
-  const ttsRef = useRef<HavaaTts | null>(null);
+  const ttsRef = useRef<RaadhavalhiTts | null>(null);
   const [playing, setPlaying] = useState(false);
   const [open, setOpen] = useState(false);
   const [subtitle, setSubtitle] = useState("");
@@ -37,7 +37,7 @@ export default function DailyBriefCard({ items, narrateLang }: Props) {
 
   const ensureTts = () => {
     if (!ttsRef.current) {
-      ttsRef.current = new HavaaTts({
+      ttsRef.current = new RaadhavalhiTts({
         onSubtitle: setSubtitle,
         onEnded: () => setPlaying(false),
         onError: () => setPlaying(false),

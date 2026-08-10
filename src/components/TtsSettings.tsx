@@ -7,7 +7,7 @@ import {
   deleteVoicePack,
 } from "../lib/piperVoiceManager";
 import { EDGE_VOICES, EdgeVoice } from "../lib/edgeTtsEngine";
-import { HavaaTts, TtsEngineType } from "../lib/ttsPlayer";
+import { RaadhavalhiTts, TtsEngineType } from "../lib/ttsPlayer";
 import {
   Mic,
   Download,
@@ -27,28 +27,28 @@ import {
 
 export default function TtsSettings() {
   const [engine, setEngine] = useState<TtsEngineType>(() => {
-    return (localStorage.getItem("havaa_tts_engine") as TtsEngineType) || "piper";
+    return (localStorage.getItem("raadhavalhi_tts_engine") as TtsEngineType) || "piper";
   });
 
   const [piperVoice, setPiperVoice] = useState<string>(() => {
-    return localStorage.getItem("havaa_piper_voice") || "ryan-high";
+    return localStorage.getItem("raadhavalhi_piper_voice") || "ryan-high";
   });
 
   const [edgeVoice, setEdgeVoice] = useState<string>(() => {
-    return localStorage.getItem("havaa_edge_voice") || "en-US-AvaMultilingualNeural";
+    return localStorage.getItem("raadhavalhi_edge_voice") || "en-US-AvaMultilingualNeural";
   });
 
   const [autoScroll, setAutoScroll] = useState<boolean>(() => {
-    return localStorage.getItem("havaa_auto_scroll") === "true";
+    return localStorage.getItem("raadhavalhi_auto_scroll") === "true";
   });
 
   const [rate, setRate] = useState<number>(() => {
-    const r = localStorage.getItem("havaa_tts_rate");
+    const r = localStorage.getItem("raadhavalhi_tts_rate");
     return r ? parseFloat(r) : 1.0;
   });
 
   const [pitch, setPitch] = useState<number>(() => {
-    const p = localStorage.getItem("havaa_tts_pitch");
+    const p = localStorage.getItem("raadhavalhi_tts_pitch");
     return p ? parseFloat(p) : 1.0;
   });
 
@@ -58,7 +58,7 @@ export default function TtsSettings() {
 
   const [isPlayingTest, setIsPlayingTest] = useState(false);
   const [activeTestPack, setActiveTestPack] = useState<string | null>(null);
-  const [ttsPlayer] = useState(() => new HavaaTts());
+  const [ttsPlayer] = useState(() => new RaadhavalhiTts());
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -77,34 +77,34 @@ export default function TtsSettings() {
 
   const handleSelectEngine = (eType: TtsEngineType) => {
     setEngine(eType);
-    localStorage.setItem("havaa_tts_engine", eType);
+    localStorage.setItem("raadhavalhi_tts_engine", eType);
     ttsPlayer.setEngine(eType, piperVoice, edgeVoice);
   };
 
   const handleSelectPiper = (packId: string) => {
     setPiperVoice(packId);
-    localStorage.setItem("havaa_piper_voice", packId);
+    localStorage.setItem("raadhavalhi_piper_voice", packId);
     ttsPlayer.setEngine("piper", packId, edgeVoice);
   };
 
   const handleSelectEdge = (vId: string) => {
     setEdgeVoice(vId);
-    localStorage.setItem("havaa_edge_voice", vId);
+    localStorage.setItem("raadhavalhi_edge_voice", vId);
     ttsPlayer.setEngine("edgetts", piperVoice, vId);
   };
 
   const handleRateChange = (newRate: number) => {
     setRate(newRate);
-    localStorage.setItem("havaa_tts_rate", String(newRate));
+    localStorage.setItem("raadhavalhi_tts_rate", String(newRate));
     // Trigger setVoice so it updates live
-    ttsPlayer.setVoice(localStorage.getItem("havaa_narrate_lang") || "en-US", "", newRate, pitch);
+    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", newRate, pitch);
   };
 
   const handlePitchChange = (newPitch: number) => {
     setPitch(newPitch);
-    localStorage.setItem("havaa_tts_pitch", String(newPitch));
+    localStorage.setItem("raadhavalhi_tts_pitch", String(newPitch));
     // Trigger setVoice so it updates live
-    ttsPlayer.setVoice(localStorage.getItem("havaa_narrate_lang") || "en-US", "", rate, newPitch);
+    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", rate, newPitch);
   };
 
   const handleDownloadPack = async (pack: PiperVoicePack) => {
@@ -148,7 +148,7 @@ export default function TtsSettings() {
     }
 
     const testText =
-      "Hello! Welcome to Havaa News. This is a live preview of your chosen neural speech voice.";
+      "Hello! Welcome to Raadhavalhi News. This is a live preview of your chosen neural speech voice.";
 
     const testEngine = packId ? "piper" : edgeId ? "edgetts" : engine;
     const testPiper = packId || piperVoice;
@@ -172,7 +172,7 @@ export default function TtsSettings() {
 
     // Make sure rate and pitch are applied before test
     ttsPlayer.setEngine(testEngine, testPiper, testEdge);
-    ttsPlayer.setVoice(localStorage.getItem("havaa_narrate_lang") || "en-US", "", rate, pitch);
+    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", rate, pitch);
     await ttsPlayer.play(testText);
   };
 
@@ -560,7 +560,7 @@ export default function TtsSettings() {
           onClick={() => {
             const next = !autoScroll;
             setAutoScroll(next);
-            localStorage.setItem("havaa_auto_scroll", next ? "true" : "false");
+            localStorage.setItem("raadhavalhi_auto_scroll", next ? "true" : "false");
           }}
           className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 relative shrink-0 ${
             autoScroll ? "bg-amber-500" : "bg-white/20"

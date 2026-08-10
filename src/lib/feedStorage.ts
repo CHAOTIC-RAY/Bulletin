@@ -1,4 +1,4 @@
-// Forked + slimmed from Kora src/lib/feedStorage.ts.
+// Feed storage for Raadhavalhi — localStorage-backed subscriptions/items.
 // Keeps the FeedItem model, curated Maldives + international catalogs, and
 // localStorage-backed subscriptions/items so the app runs with no backend.
 
@@ -25,21 +25,23 @@ export interface FeedItem {
   content?: string;
   publishedAt: number;
   imageUrl?: string;
-  images?: string[]; // <-- Havaa: collected gallery images for AutoImageReel
+  images?: string[]; // <-- Raadhavalhi: collected gallery images for AutoImageReel
   category?: string;
   read: boolean;
   saved?: boolean;
   savedAt?: number;
 }
 
-const SUBSCRIPTIONS_KEY = "havaa_feed_subscriptions";
-const ITEMS_KEY = "havaa_feed_items";
+const SUBSCRIPTIONS_KEY = "raadhavalhi_feed_subscriptions";
+const ITEMS_KEY = "raadhavalhi_feed_items";
 
 export const DEFAULT_FEED_SUBSCRIPTIONS: Omit<FeedSubscription, "id" | "addedAt">[] = [
   { title: "Maldives Independent", siteUrl: "https://maldivesindependent.com", feedUrl: "https://maldivesindependent.com/api/rss" },
   { title: "PSM News", siteUrl: "https://psmnews.mv/en/", feedUrl: "https://psmnews.mv/en/feed/" },
   { title: "Edition", siteUrl: "https://edition.mv/", feedUrl: "https://edition.mv/feed/" },
   { title: "Mihaaru", siteUrl: "https://mihaaru.com/", feedUrl: "https://mihaaru.com/feed/" },
+  { title: "Sun.mv", siteUrl: "https://sun.mv/", feedUrl: "https://sun.mv/feed/" },
+  { title: "Vaguthu", siteUrl: "https://vaguthu.mv/", feedUrl: "https://vaguthu.mv/feed/" },
 ];
 
 export const INTERNATIONAL_FEED_OPTIONS: Omit<FeedSubscription, "id" | "addedAt">[] = [
@@ -123,6 +125,36 @@ export function saveFeedItems(items: FeedItem[]): void {
 }
 export function isFeedSubscriptionEnabled(sub: Pick<FeedSubscription, "enabled">): boolean {
   return sub.enabled !== false;
+}
+
+export function setFeedSubscriptionEnabled(id: string, enabled: boolean): FeedSubscription[] {
+  const subs = getFeedSubscriptions().map((s) => (s.id === id ? { ...s, enabled } : s));
+  saveFeedSubscriptions(subs);
+  return subs;
+}
+
+export function addFeedSubscription(sub: Omit<FeedSubscription, "id" | "addedAt">): FeedSubscription[] {
+  const existing = getFeedSubscriptions();
+  const id = makeFeedSubscriptionId(sub.feedUrl);
+  if (existing.some((s) => s.id === id)) return existing;
+  const next = [...existing, { ...sub, id, addedAt: Date.now(), enabled: true }];
+  saveFeedSubscriptions(next);
+  return next;
+}
+
+export function removeFeedSubscription(id: string): FeedSubscription[] {
+  const next = getFeedSubscriptions().filter((s) => s.id !== id);
+  saveFeedSubscriptions(next);
+  return next;
+}
+
+/** All curated sources (Maldives defaults + international options + topics), for the management UI. */
+export function getAllCuratedSources(): { group: string; sources: Omit<FeedSubscription, "id" | "addedAt">[] }[] {
+  return [
+    { group: "Maldives", sources: DEFAULT_FEED_SUBSCRIPTIONS },
+    { group: "International", sources: INTERNATIONAL_FEED_OPTIONS },
+    ...TOPIC_FEED_GROUPS.map((g) => ({ group: g.label, sources: g.feeds })),
+  ];
 }
 
 export function makeFeedSubscriptionId(feedUrl: string): string {

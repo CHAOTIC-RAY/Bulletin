@@ -1,4 +1,4 @@
-// Forked from Kora src/lib/generateNewsBrief.ts — on-device daily-brief generator (NO AI).
+// On-device daily-brief generator (NO AI).
 // Builds a structured brief from FeedItems: dedup, rewrite headlines, group by source, lead sentence.
 
 export interface BriefArticleInput {

@@ -5,12 +5,13 @@ import {
   getFeedItems,
   saveFeedItems,
   applySelectedFeedSources,
-  TOPIC_FEED_GROUPS,
+  getFeedSubscriptions,
   isFeedSubscriptionEnabled,
+  TOPIC_FEED_GROUPS,
 } from "./lib/feedStorage";
 import { refreshAllSubscriptions, collectArticleImages } from "./lib/feedClient";
 import { getLocale, localeIsRtl, LocaleCode, t } from "./lib/i18n";
-import HavaaFeedScroll from "./components/HavaaFeedScroll";
+import RaadhavalhiFeedScroll from "./components/RaadhavalhiFeedScroll";
 import MagazineFeedScroll from "./components/MagazineFeedScroll";
 import DailyBriefCard from "./components/DailyBriefCard";
 import FeedReader from "./components/FeedReader";
@@ -24,13 +25,14 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("setup");
   const [uiLocale, setUiLocale] = useState<LocaleCode>(getLocale());
   const [narrateLang, setNarrateLang] = useState<string>(
-    localStorage.getItem("havaa_narrate_lang") || "en-US"
+    localStorage.getItem("raadhavalhi_narrate_lang") || "en-US"
   );
   const [items, setItems] = useState<FeedItem[]>([]);
   const [selected, setSelected] = useState<FeedItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("immersive");
   const [showBrief, setShowBrief] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
 
   useEffect(() => {
     // If a previous session configured sources, skip setup.
@@ -63,7 +65,7 @@ export default function App() {
   const onSetupDone = (ui: LocaleCode, narr: string) => {
     setUiLocale(ui);
     setNarrateLang(narr);
-    localStorage.setItem("havaa_narrate_lang", narr);
+    localStorage.setItem("raadhavalhi_narrate_lang", narr);
     
     // Default all topics on
     applySelectedFeedSources(TOPIC_FEED_GROUPS.map((g) => g.id));
@@ -100,7 +102,7 @@ export default function App() {
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xl tracking-tighter ${isImmersive ? 'bg-white text-black' : 'bg-black text-white dark:bg-white dark:text-black'}`}>
               H
             </div>
-            <span className={`font-extrabold tracking-tight text-xl ${isImmersive ? 'text-white drop-shadow-md' : 'text-black dark:text-white'}`}>Havaa</span>
+            <span className={`font-extrabold tracking-tight text-xl ${isImmersive ? 'text-white drop-shadow-md' : 'text-black dark:text-white'}`}>Raadhavalhi</span>
           </div>
 
           <div className={`flex items-center p-1 rounded-full backdrop-blur-md shadow-sm border ${isImmersive ? 'bg-black/40 border-white/10' : 'bg-white/80 dark:bg-black/50 border-neutral-200 dark:border-neutral-800'}`}>
@@ -162,7 +164,7 @@ export default function App() {
       <div className={`h-full w-full`}>
         {items.length ? (
           isImmersive ? (
-            <HavaaFeedScroll items={items} narrateLang={narrateLang} onOpen={openReader} onSave={toggleSave} onOpenBrief={() => setShowBrief(!showBrief)} />
+            <RaadhavalhiFeedScroll items={items} narrateLang={narrateLang} onOpen={openReader} onSave={toggleSave} onOpenBrief={() => setShowBrief(!showBrief)} />
           ) : (
             <MagazineFeedScroll 
               items={items} 

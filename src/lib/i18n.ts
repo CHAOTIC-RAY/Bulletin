@@ -1,4 +1,4 @@
-// Havaa i18n — lightweight string table. UI language is independent of TTS narration language.
+// Raadhavalhi i18n — lightweight string table. UI language is independent of TTS narration language.
 import { isRtlLang } from "./textDirection";
 
 export type LocaleCode = "en" | "dv";
@@ -11,7 +11,7 @@ export const LOCALES: { code: LocaleCode; label: string; english: string; rtl: b
 type Dict = Record<string, string>;
 
 const en: Dict = {
-  "app.name": "Havaa",
+  "app.name": "Raadhavalhi",
   "app.tagline": "News, reimagined",
   "onboarding.title": "What do you want to follow?",
   "onboarding.subtitle": "Pick a few interests — we'll load the right sources. No RSS pasting.",
@@ -65,10 +65,10 @@ const dv: Dict = {
 const TABLES: Record<LocaleCode, Dict> = { en, dv };
 
 export function getLocale(): LocaleCode {
-  return (localStorage.getItem("havaa_locale") as LocaleCode) || "en";
+  return (localStorage.getItem("raadhavalhi_locale") as LocaleCode) || "en";
 }
 export function setLocale(code: LocaleCode): void {
-  localStorage.setItem("havaa_locale", code);
+  localStorage.setItem("raadhavalhi_locale", code);
 }
 export function t(key: string, locale: LocaleCode = getLocale()): string {
   return TABLES[locale]?.[key] ?? TABLES.en[key] ?? key;

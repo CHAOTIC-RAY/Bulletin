@@ -121,7 +121,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
           {/* Newspaper Nameplate */}
           <div className="py-2">
             <h1 className="font-serif font-black tracking-tight text-4xl sm:text-6xl md:text-7xl lg:text-8xl uppercase text-neutral-950 dark:text-white drop-shadow-sm">
-              The Havaa Gazette
+              The Raadhavalhi Gazette
             </h1>
             <p className="text-xs sm:text-sm font-serif italic text-neutral-600 dark:text-neutral-400 mt-1">
               International Broadsheet • Daily Independent News & Intel
@@ -294,9 +294,9 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
         {/* Bottom Broadsheet Footer */}
         <footer className="mt-16 pt-8 border-t-2 border-b border-neutral-900 dark:border-neutral-100 text-center text-xs font-mono text-neutral-600 dark:text-neutral-400 space-y-2 pb-6">
           <p className="font-serif font-bold uppercase tracking-widest text-neutral-900 dark:text-white text-sm">
-            End of Current Edition • Havaa Intelligence Feed
+            End of Current Edition • Raadhavalhi Intelligence Feed
           </p>
-          <p>© 2026 Havaa News Chronicle. Real-time RSS & Neural Speech Aggregator.</p>
+          <p>© 2026 Raadhavalhi News Chronicle. Real-time RSS & Neural Speech Aggregator.</p>
         </footer>
 
       </div>

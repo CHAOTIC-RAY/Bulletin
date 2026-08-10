@@ -3,7 +3,7 @@ import type { FeedItem } from "../lib/feedStorage";
 import { textDirection } from "../lib/textDirection";
 import { t, getLocale } from "../lib/i18n";
 import AutoImageReel from "./AutoImageReel";
-import { HavaaTts } from "../lib/ttsPlayer";
+import { RaadhavalhiTts } from "../lib/ttsPlayer";
 import { Volume2, VolumeX } from "lucide-react";
 
 interface Props {
@@ -15,10 +15,10 @@ interface Props {
 }
 
 /**
- * Havaa home — TikTok/Reels-style vertical news scroll.
+ * Raadhavalhi home — TikTok/Reels-style vertical news scroll.
  * One story per screen, snap scrolling, multi-image AutoImageReel hero.
  */
-export default function HavaaFeedScroll({ items, narrateLang, onOpen, onSave, onOpenBrief }: Props) {
+export default function RaadhavalhiFeedScroll({ items, narrateLang, onOpen, onSave, onOpenBrief }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -33,7 +33,7 @@ export default function HavaaFeedScroll({ items, narrateLang, onOpen, onSave, on
   activeIndexRef.current = active;
 
   // Maintain a TTS instance
-  const tts = useMemo(() => new HavaaTts(), []);
+  const tts = useMemo(() => new RaadhavalhiTts(), []);
 
   useEffect(() => {
     tts.setVoice(narrateLang);
@@ -78,7 +78,7 @@ export default function HavaaFeedScroll({ items, narrateLang, onOpen, onSave, on
                     setIsReading(false);
 
                     // Check if Auto-Scroll is enabled in settings
-                    const isAutoScroll = localStorage.getItem("havaa_auto_scroll") === "true";
+                    const isAutoScroll = localStorage.getItem("raadhavalhi_auto_scroll") === "true";
                     if (isAutoScroll) {
                       go(1);
                     }
@@ -90,7 +90,7 @@ export default function HavaaFeedScroll({ items, narrateLang, onOpen, onSave, on
             } else {
               currentStepRef.current = "idle";
               setIsReading(false);
-              const isAutoScroll = localStorage.getItem("havaa_auto_scroll") === "true";
+              const isAutoScroll = localStorage.getItem("raadhavalhi_auto_scroll") === "true";
               if (isAutoScroll) go(1);
             }
           }, 2000);

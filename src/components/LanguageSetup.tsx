@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { LocaleCode, getLocale } from "../lib/i18n";
 import TtsSettings from "./TtsSettings";
-import { Mic, Globe, Sliders, ArrowLeft } from "lucide-react";
+import SourcesPanel from "./SourcesPanel";
+import { Mic, Globe, Sliders, ArrowLeft, Newspaper } from "lucide-react";
 
 interface Props {
   onDone: (uiLocale: LocaleCode, narrateLang: string) => void;
@@ -10,7 +11,7 @@ interface Props {
 export default function LanguageSetup({ onDone }: Props) {
   const [uiLocale, setUiLocale] = useState<LocaleCode>(getLocale());
   const [narrateLang, setNarrateLang] = useState("en-US");
-  const [tab, setTab] = useState<"tts" | "language">("tts");
+  const [tab, setTab] = useState<"tts" | "language" | "sources">("tts");
 
   const handleComplete = () => {
     onDone(uiLocale, narrateLang);
@@ -63,6 +64,17 @@ export default function LanguageSetup({ onDone }: Props) {
             <Globe className="w-4 h-4" />
             <span>App Language</span>
           </button>
+          <button
+            onClick={() => setTab("sources")}
+            className={`flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
+              tab === "sources"
+                ? "bg-amber-500 text-black shadow-md"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            <Newspaper className="w-4 h-4" />
+            <span>Sources</span>
+          </button>
         </div>
 
         {/* Main Tab Content */}
@@ -70,7 +82,7 @@ export default function LanguageSetup({ onDone }: Props) {
           <div className="flex-1">
             <TtsSettings />
           </div>
-        ) : (
+        ) : tab === "language" ? (
           <div className="flex-1 space-y-6 pt-2">
             <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-4">
               <div className="flex items-center gap-3">
@@ -90,6 +102,10 @@ export default function LanguageSetup({ onDone }: Props) {
                 <option value="dv">Dhivehi (RTL / Thaana)</option>
               </select>
             </div>
+          </div>
+        ) : (
+          <div className="flex-1 pt-2">
+            <SourcesPanel onChanged={() => { /* persisted automatically */ }} />
           </div>
         )}
 

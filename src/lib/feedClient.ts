@@ -1,9 +1,8 @@
-// Havaa feed client — fetches RSS without a backend by routing through a public
-// RSS-to-JSON proxy. (Kora uses its own Worker; Havaa reuses that when deployed,
-// but this keeps the app runnable standalone for AI Studio / local dev.)
+// Raadhavalhi feed client — fetches RSS via the app's own /api/feed/fetch
+// enrichment endpoint; falls back to a public RSS->JSON proxy when offline.
 import { FeedItem, FeedSubscription, parseFeedJson } from "./feedStorage";
 
-// Public CORS-friendly RSS→JSON proxy. Swap for Kora's /api/feed proxy in prod.
+// Public CORS-friendly RSS→JSON proxy (fallback if the enrichment endpoint is down).
 const RSS_PROXY = "https://api.rss2json.com/v1/api.json?rss_url=";
 
 /** Parse an XML string into FeedItems using browser's native DOMParser. */
@@ -89,7 +88,35 @@ function parseXmlToItems(xmlStr: string, sub: FeedSubscription): FeedItem[] {
 }
 
 export async function fetchFeed(sub: FeedSubscription): Promise<FeedItem[]> {
-  // 1. Try our highly reliable server-side feed proxy first (bypasses CORS & Cloudflare)
+  // 1. Primary: our server-side enrichment endpoint (best-method-per-source image
+  //    + full-content extraction, bypasses CORS & Cloudflare).
+  try {
+    const response = await fetch(`/api/feed/fetch?url=${encodeURIComponent(sub.feedUrl)}`);
+    if (response.ok) {
+      const json: any = await response.json();
+      const items: any[] = json?.items || [];
+      if (items.length) {
+        return items.map((e, i) => ({
+          id: `${sub.id}-${e.id || e.link || i}`,
+          subscriptionId: sub.id,
+          subscriptionTitle: sub.title,
+          title: String(e.title || "Untitled").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+          link: String(e.link || ""),
+          author: e.author || undefined,
+          summary: e.summary ? String(e.summary).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : undefined,
+          content: e.content || e.summary || undefined,
+          publishedAt: e.publishedAt || Date.now() - i * 60000,
+          imageUrl: e.imageUrl || (e.images && e.images[0]) || undefined,
+          images: e.images && e.images.length ? e.images : e.imageUrl ? [e.imageUrl] : undefined,
+          read: false,
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn(`Enriched feed fetch failed for ${sub.title}, trying rss2json...`, err);
+  }
+
+  // 2. Fallback to the raw XML proxy + browser parse.
   try {
     const response = await fetch(`/api/feed-proxy?url=${encodeURIComponent(sub.feedUrl)}`);
     if (response.ok) {
@@ -101,7 +128,7 @@ export async function fetchFeed(sub: FeedSubscription): Promise<FeedItem[]> {
     console.warn(`Backend feed proxy failed for ${sub.title}, trying rss2json...`, err);
   }
 
-  // 2. Fallback to rss2json proxy if server proxy fails or is not found
+  // 3. Last resort: rss2json proxy if server proxy fails or is not found
   try {
     const res = await fetch(RSS_PROXY + encodeURIComponent(sub.feedUrl));
     if (!res.ok) return [];

@@ -1,4 +1,4 @@
-// Forked from Kora src/lib/textDirection.ts - RTL / Dhivehi (Thaana) detection.
+// RTL / Dhivehi (Thaana) detection.
 const THAANA_RE: RegExp = /[\u0780-\u07BF]/;
 const ARABIC_RE: RegExp = /[\u0600-\u06FF]/;
 
