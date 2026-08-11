@@ -2,7 +2,7 @@
 
 /// <reference types="@cloudflare/workers-types" />
 
-import { synthesizeEdgeTts } from "./lib/edgeTtsCore";
+import { synthesizePolly } from "./lib/pollyCore";
 
 // SPA fallback: anything that isn't an /api/* route serves index.html.
 function isApiRequest(pathname: string): boolean {
@@ -16,7 +16,7 @@ async function handleApi(request: Request): Promise<Response> {
     return Response.json({ status: "ok" });
   }
 
-  if (url.pathname === "/api/tts/edge" && request.method === "POST") {
+  if (url.pathname === "/api/tts/polly" && request.method === "POST") {
     let body: any;
     try {
       body = await request.json();
@@ -28,11 +28,11 @@ async function handleApi(request: Request): Promise<Response> {
       return Response.json({ error: "Text string is required" }, { status: 400 });
     }
     try {
-      const { audio, contentType } = await synthesizeEdgeTts(
+      const { audio, contentType } = await synthesizePolly(
         text,
-        body?.voiceId || "en-US-AvaMultilingualNeural",
-        Number(body?.rate) || 1,
-        Number(body?.pitch) || 1
+        body?.voiceId || "Matthew",
+        body?.engine === "standard" ? "standard" : "neural",
+        Number(body?.rate) || 1
       );
       return new Response(audio as BodyInit, {
         headers: {
@@ -42,7 +42,7 @@ async function handleApi(request: Request): Promise<Response> {
       });
     } catch (error: any) {
       return Response.json(
-        { error: error?.message || "Edge TTS synthesis failed" },
+        { error: error?.message || "Polly TTS synthesis failed" },
         { status: 502 }
       );
     }

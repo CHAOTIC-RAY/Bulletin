@@ -1,10 +1,16 @@
 // Unified Raadhavalhi TTS Engine
-// Supports WebSpeech, Piper TTS (High Voice Packs), and Edge TTS (openai-edge-tts style)
+// Free, keyless browser WebSpeech (SpeechSynthesis) is the default — zero
+// download, zero API key, no 114 MB WASM model to crash low-end pages.
+// Piper TTS (in-browser WASM neural voices) remains available as an optional
+// local engine for users who want a different voice and have the bandwidth to
+// download a ~114 MB model. The reverse-engineered Edge TTS WebSocket was
+// removed: Microsoft killed that endpoint (401/403), so it only ever 502'd.
 
 import { synthesizePiperAudio, PIPER_VOICE_PACKS } from "./piperVoiceManager";
-import { synthesizeEdgeTts, EDGE_VOICES } from "./edgeTtsEngine";
+import { getWebSpeechVoices, pickVoice } from "./webSpeechEngine";
+import { synthesizePolly } from "./pollyEngine";
 
-export type TtsEngineType = "webspeech" | "piper" | "edgetts";
+export type TtsEngineType = "webspeech" | "piper" | "polly";
 
 export interface TtsCallbacks {
   onSubtitle?: (text: string) => void;
@@ -20,13 +26,15 @@ function splitSentences(text: string): string[] {
 
 export class RaadhavalhiTts {
   private cb: TtsCallbacks = {};
-  private engine: TtsEngineType = "piper";
+  private engine: TtsEngineType = "webspeech";
   private piperPackId = "ryan-high";
-  private edgeVoiceId = "en-US-AvaMultilingualNeural";
+  private pollyVoiceId = "Matthew";
+  private pollyEngine: "standard" | "neural" = "neural";
   private webSpeechLang = "en-US";
   private webSpeechVoice = "";
   private rate = 1;
   private pitch = 1;
+  private volume = 1;
 
   private playing = false;
   private currentPlayId = 0;
@@ -43,19 +51,28 @@ export class RaadhavalhiTts {
   public loadSettings() {
     if (typeof localStorage !== "undefined") {
       const savedEngine = localStorage.getItem("raadhavalhi_tts_engine") as TtsEngineType;
-      if (savedEngine) this.engine = savedEngine;
+      if (savedEngine === "webspeech" || savedEngine === "piper" || savedEngine === "polly") this.engine = savedEngine;
 
       const savedPiper = localStorage.getItem("raadhavalhi_piper_voice");
       if (savedPiper) this.piperPackId = savedPiper;
 
-      const savedEdge = localStorage.getItem("raadhavalhi_edge_voice");
-      if (savedEdge) this.edgeVoiceId = savedEdge;
+      const savedPolly = localStorage.getItem("raadhavalhi_polly_voice");
+      if (savedPolly) this.pollyVoiceId = savedPolly;
+
+      const savedPollyEngine = localStorage.getItem("raadhavalhi_polly_engine");
+      if (savedPollyEngine === "standard" || savedPollyEngine === "neural") this.pollyEngine = savedPollyEngine;
+
+      const savedVoice = localStorage.getItem("raadhavalhi_webspeech_voice");
+      if (savedVoice) this.webSpeechVoice = savedVoice;
 
       const savedRate = localStorage.getItem("raadhavalhi_tts_rate");
       if (savedRate) this.rate = parseFloat(savedRate);
 
       const savedPitch = localStorage.getItem("raadhavalhi_tts_pitch");
       if (savedPitch) this.pitch = parseFloat(savedPitch);
+
+      const savedVol = localStorage.getItem("raadhavalhi_tts_volume");
+      if (savedVol) this.volume = Math.min(1, Math.max(0, parseFloat(savedVol)));
     }
   }
 
@@ -66,26 +83,37 @@ export class RaadhavalhiTts {
   public setEngine(
     engine: TtsEngineType,
     piperPackId?: string,
-    edgeVoiceId?: string,
-    webSpeechLang = "en-US"
+    webSpeechLang?: string
   ) {
     this.engine = engine;
     if (piperPackId) this.piperPackId = piperPackId;
-    if (edgeVoiceId) this.edgeVoiceId = edgeVoiceId;
-    this.webSpeechLang = webSpeechLang;
+    if (webSpeechLang) this.webSpeechLang = webSpeechLang;
 
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("raadhavalhi_tts_engine", engine);
       if (piperPackId) localStorage.setItem("raadhavalhi_piper_voice", piperPackId);
-      if (edgeVoiceId) localStorage.setItem("raadhavalhi_edge_voice", edgeVoiceId);
     }
   }
 
-  public setVoice(lang: string, voiceName = "", rate = 1, pitch = 1) {
+  public setPolly(voiceId: string, engine: "standard" | "neural" = "neural") {
+    this.pollyVoiceId = voiceId;
+    this.pollyEngine = engine;
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("raadhavalhi_polly_voice", voiceId);
+      localStorage.setItem("raadhavalhi_polly_engine", engine);
+    }
+  }
+
+  public setVoice(lang: string, voiceName = "", rate = 1, pitch = 1, volume = 1) {
     this.webSpeechLang = lang || "en-US";
     this.webSpeechVoice = voiceName;
     this.rate = rate;
     this.pitch = pitch;
+    this.volume = Math.min(1, Math.max(0, volume));
+  }
+
+  public setGain(v: number) {
+    this.volume = Math.min(1, Math.max(0, v));
   }
 
   public async play(text: string) {
@@ -106,14 +134,73 @@ export class RaadhavalhiTts {
 
     if (this.engine === "piper") {
       await this.playPiper(sentences, playId);
-    } else if (this.engine === "edgetts") {
-      await this.playEdgeTts(sentences, playId);
+    } else if (this.engine === "polly") {
+      await this.playPolly(sentences, playId);
     } else {
       this.playWebSpeech(sentences, playId);
     }
   }
 
-  // --- 1. Piper TTS Playback ---
+  // --- 1.5 Polly TTS Playback (AWS cloud, MP3 via backend proxy) ---
+  private async playPolly(sentences: string[], playId: number) {
+    try {
+      let idx = 0;
+      const playNextSentence = async () => {
+        if (!this.playing || playId !== this.currentPlayId || idx >= sentences.length) {
+          if (playId === this.currentPlayId) {
+            this.playing = false;
+            this.cb.onEnded?.();
+          }
+          return;
+        }
+
+        const sentence = sentences[idx];
+        this.cb.onSubtitle?.(sentence);
+
+        try {
+          const blob = await synthesizePolly(
+            sentence,
+            this.pollyVoiceId,
+            this.pollyEngine,
+            this.rate
+          );
+
+          if (!this.playing || playId !== this.currentPlayId) return;
+
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.volume = Math.min(1, Math.max(0, this.volume));
+          this.currentAudio = audio;
+
+          audio.onended = () => {
+            URL.revokeObjectURL(url);
+            if (!this.playing || playId !== this.currentPlayId) return;
+            idx++;
+            playNextSentence();
+          };
+
+          audio.onerror = () => {
+            URL.revokeObjectURL(url);
+            if (!this.playing || playId !== this.currentPlayId) return;
+            this.cb.onError?.("Polly audio playback failed");
+          };
+
+          await audio.play();
+        } catch (e: any) {
+          console.warn("Polly TTS synthesis failed:", e);
+          if (!this.playing || playId !== this.currentPlayId) return;
+          this.cb.onError?.(e?.message || "Polly TTS failed");
+        }
+      };
+
+      await playNextSentence();
+    } catch (err: any) {
+      console.warn("Polly TTS failed:", err);
+      this.cb.onError?.(err?.message || "Polly TTS failed");
+    }
+  }
+
+  // --- 1. Piper TTS Playback (optional local WASM engine) ---
   private async playPiper(sentences: string[], playId: number) {
     try {
       const bufferPromiseCache = new Map<number, Promise<AudioBuffer>>();
@@ -190,93 +277,18 @@ export class RaadhavalhiTts {
     }
   }
 
-  // --- 2. Edge TTS Playback ---
-  private async playEdgeTts(sentences: string[], playId: number) {
-    try {
-      const blobPromiseCache = new Map<number, Promise<Blob>>();
-
-      const getBlob = (index: number): Promise<Blob> => {
-        if (!blobPromiseCache.has(index)) {
-          const promise = synthesizeEdgeTts(
-            sentences[index],
-            this.edgeVoiceId,
-            this.rate,
-            this.pitch
-          );
-          blobPromiseCache.set(index, promise);
-        }
-        return blobPromiseCache.get(index)!;
-      };
-
-      const prefetch = (currentIndex: number) => {
-        for (let i = 1; i <= 2; i++) {
-          const nextIndex = currentIndex + i;
-          if (nextIndex < sentences.length) {
-            getBlob(nextIndex).catch((err) => {
-              console.warn(`Edge pre-synthesis failed for index ${nextIndex}`, err);
-            });
-          }
-        }
-      };
-
-      let idx = 0;
-      const playNextSentence = async () => {
-        if (!this.playing || playId !== this.currentPlayId || idx >= sentences.length) {
-          if (playId === this.currentPlayId) {
-            this.playing = false;
-            this.cb.onEnded?.();
-          }
-          return;
-        }
-
-        const sentence = sentences[idx];
-        this.cb.onSubtitle?.(sentence);
-
-        try {
-          // Trigger prefetch for the next sentences immediately
-          prefetch(idx);
-
-          const blob = await getBlob(idx);
-
-          if (!this.playing || playId !== this.currentPlayId) return;
-
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          this.currentAudio = audio;
-
-          audio.onended = () => {
-            URL.revokeObjectURL(url);
-            if (!this.playing || playId !== this.currentPlayId) return;
-            idx++;
-            playNextSentence();
-          };
-
-          audio.onerror = () => {
-            URL.revokeObjectURL(url);
-            console.warn("Edge TTS audio element error, using browser speech fallback");
-            this.playWebSpeech(sentences.slice(idx), playId);
-          };
-
-          await audio.play();
-        } catch (e) {
-          console.warn("Edge TTS synthesis failed, using browser speech fallback:", e);
-          this.playWebSpeech(sentences.slice(idx), playId);
-        }
-      };
-
-      await playNextSentence();
-    } catch (err: any) {
-      console.warn("Edge TTS failed, using browser speech fallback:", err);
-      this.playWebSpeech(sentences, playId);
-    }
-  }
-
-  // --- 3. Web Speech API Fallback ---
+  // --- 2. Browser WebSpeech (default, free, keyless) ---
   private playWebSpeech(sentences: string[], playId: number) {
     if (typeof window === "undefined" || !window.speechSynthesis) {
       this.cb.onError?.("Web Speech API not supported.");
       return;
     }
+
+    const voices = getWebSpeechVoices();
+    const chosen = this.webSpeechVoice
+      ? voices.find((v) => v.name === this.webSpeechVoice || v.voiceURI === this.webSpeechVoice)
+      : pickVoice(this.webSpeechLang);
+
     let idx = 0;
     const speakNext = () => {
       if (!this.playing || playId !== this.currentPlayId || idx >= sentences.length) {
@@ -288,38 +300,12 @@ export class RaadhavalhiTts {
       }
       const sentence = sentences[idx];
       const u = new SpeechSynthesisUtterance(sentence);
-      u.lang = this.webSpeechLang;
+      u.lang = this.webSpeechLang || "en-US";
       u.rate = this.rate;
       u.pitch = this.pitch;
+      u.volume = Math.min(1, Math.max(0, this.volume));
 
-      if (this.webSpeechVoice) {
-        const match = window.speechSynthesis.getVoices().find((v) => v.name === this.webSpeechVoice);
-        if (match) u.voice = match;
-      } else if (window.speechSynthesis) {
-        const voices = window.speechSynthesis.getVoices();
-        const isMale =
-          this.edgeVoiceId.includes("Andrew") ||
-          this.edgeVoiceId.includes("Guy") ||
-          this.edgeVoiceId.includes("Brian") ||
-          this.piperPackId.includes("ryan") ||
-          this.piperPackId.includes("alan");
-
-        let voiceMatch = voices.find((v) => {
-          const vName = v.name.toLowerCase();
-          return (
-            v.lang.startsWith("en") &&
-            (isMale
-              ? vName.includes("male") || vName.includes("david") || vName.includes("mark") || vName.includes("george") || vName.includes("guy")
-              : vName.includes("female") || vName.includes("zira") || vName.includes("samantha") || vName.includes("ava") || vName.includes("aria"))
-          );
-        });
-
-        if (!voiceMatch) {
-          voiceMatch = voices.find((v) => v.lang.startsWith("en"));
-        }
-        if (voiceMatch) u.voice = voiceMatch;
-        if (isMale) u.pitch = Math.max(0.7, u.pitch * 0.85);
-      }
+      if (chosen) u.voice = chosen;
 
       u.onboundary = () => {
         if (playId === this.currentPlayId) {
@@ -350,7 +336,6 @@ export class RaadhavalhiTts {
 
   public pause() {
     this.playing = false;
-    if (this.currentAudio) this.currentAudio.pause();
     if (this.audioCtx && this.audioCtx.state === "running") this.audioCtx.suspend();
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.pause();
     this.cb.onPause?.();
@@ -358,7 +343,6 @@ export class RaadhavalhiTts {
 
   public resume() {
     this.playing = true;
-    if (this.currentAudio) this.currentAudio.play();
     if (this.audioCtx && this.audioCtx.state === "suspended") this.audioCtx.resume();
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.resume();
     this.cb.onPlay?.();
@@ -374,14 +358,6 @@ export class RaadhavalhiTts {
         this.activeSource.disconnect();
       } catch {}
       this.activeSource = null;
-    }
-
-    if (this.currentAudio) {
-      try {
-        this.currentAudio.pause();
-        this.currentAudio.currentTime = 0;
-      } catch {}
-      this.currentAudio = null;
     }
 
     if (typeof window !== "undefined" && window.speechSynthesis) {

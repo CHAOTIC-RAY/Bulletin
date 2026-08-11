@@ -1,5 +1,23 @@
 # Beta Changes & Implementation Log
 
+## ⚠️ Update (2026-08): Edge TTS removed, AWS Polly + WebSpeech added
+- **Root cause of the page crashes / "low and heavy" TTS:** Piper was the *default*
+  engine and loads a **~114 MB WASM model** into the browser, which OOMs low-end
+  pages. The default is now **Browser WebSpeech** (free, zero download, zero API key).
+- **Edge TTS was dead.** Microsoft killed the reverse-engineered
+  `speech.platform.bing.com` WebSocket (returns 401/403 as of 2026-08), so
+  `/api/tts/edge` only ever 502'd. The route and its client (`edgeTtsEngine.ts`,
+  `edgeTtsCore.ts`) were **deleted**.
+- **Replacement cloud engine = AWS Polly.** New `src/lib/pollyCore.ts` (shared
+  Web-API impl) + `/api/tts/polly` route in `server.ts` and `worker.ts`, backed by
+  `@aws-sdk/client-polly`. New `src/lib/pollyEngine.ts` client + a Polly voice picker
+  in `TtsSettings.tsx`. Honest 502 if AWS creds are missing (never silent fallback).
+- **Free path without any key:** Browser WebSpeech — the same free voices TTSReader
+  exposes (TTSReader's "free" tier *is* the browser's SpeechSynthesis voices).
+- See `README.md` → "AWS Polly setup" for the step-by-step console guide.
+
+---
+
 ## Overview
 This release implements high-quality Piper WASM voice pack management (with special emphasis on `ryan-high` and `ljspeech-high`) as well as Microsoft Edge ReadAloud Neural TTS (`openai-edge-tts` style), allowing users to select, manage, download, cache, and test TTS engines directly inside the application settings.
 

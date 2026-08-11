@@ -6,7 +6,8 @@ import {
   downloadVoicePack,
   deleteVoicePack,
 } from "../lib/piperVoiceManager";
-import { EDGE_VOICES, EdgeVoice } from "../lib/edgeTtsEngine";
+import { getWebSpeechVoices } from "../lib/webSpeechEngine";
+import { POLLY_VOICES } from "../lib/pollyEngine";
 import { RaadhavalhiTts, TtsEngineType } from "../lib/ttsPlayer";
 import {
   Mic,
@@ -17,7 +18,7 @@ import {
   Check,
   Cpu,
   Globe,
-  Radio,
+  Cloud,
   Sparkles,
   Volume2,
   HardDrive,
@@ -27,15 +28,15 @@ import {
 
 export default function TtsSettings() {
   const [engine, setEngine] = useState<TtsEngineType>(() => {
-    return (localStorage.getItem("raadhavalhi_tts_engine") as TtsEngineType) || "piper";
+    return (localStorage.getItem("raadhavalhi_tts_engine") as TtsEngineType) || "webspeech";
   });
 
   const [piperVoice, setPiperVoice] = useState<string>(() => {
     return localStorage.getItem("raadhavalhi_piper_voice") || "ryan-high";
   });
 
-  const [edgeVoice, setEdgeVoice] = useState<string>(() => {
-    return localStorage.getItem("raadhavalhi_edge_voice") || "en-US-AvaMultilingualNeural";
+  const [pollyVoiceId, setPollyVoiceId] = useState<string>(() => {
+    return localStorage.getItem("raadhavalhi_polly_voice") || "Matthew";
   });
 
   const [autoScroll, setAutoScroll] = useState<boolean>(() => {
@@ -50,6 +51,11 @@ export default function TtsSettings() {
   const [pitch, setPitch] = useState<number>(() => {
     const p = localStorage.getItem("raadhavalhi_tts_pitch");
     return p ? parseFloat(p) : 1.0;
+  });
+
+  const [volume, setVolume] = useState<number>(() => {
+    const v = localStorage.getItem("raadhavalhi_tts_volume");
+    return v ? Math.min(1, Math.max(0, parseFloat(v))) : 1.0;
   });
 
   const [downloadedMap, setDownloadedMap] = useState<Record<string, boolean>>({});
@@ -78,33 +84,40 @@ export default function TtsSettings() {
   const handleSelectEngine = (eType: TtsEngineType) => {
     setEngine(eType);
     localStorage.setItem("raadhavalhi_tts_engine", eType);
-    ttsPlayer.setEngine(eType, piperVoice, edgeVoice);
+    ttsPlayer.setEngine(eType, piperVoice, localStorage.getItem("raadhavalhi_narrate_lang") || "en-US");
   };
 
   const handleSelectPiper = (packId: string) => {
     setPiperVoice(packId);
     localStorage.setItem("raadhavalhi_piper_voice", packId);
-    ttsPlayer.setEngine("piper", packId, edgeVoice);
+    ttsPlayer.setEngine("piper", packId, localStorage.getItem("raadhavalhi_narrate_lang") || "en-US");
   };
 
-  const handleSelectEdge = (vId: string) => {
-    setEdgeVoice(vId);
-    localStorage.setItem("raadhavalhi_edge_voice", vId);
-    ttsPlayer.setEngine("edgetts", piperVoice, vId);
+  const handleSelectPolly = (vId: string) => {
+    setPollyVoiceId(vId);
+    localStorage.setItem("raadhavalhi_polly_voice", vId);
+    ttsPlayer.setPolly(vId, "neural");
+    ttsPlayer.setEngine("polly", piperVoice, localStorage.getItem("raadhavalhi_narrate_lang") || "en-US");
   };
 
   const handleRateChange = (newRate: number) => {
     setRate(newRate);
     localStorage.setItem("raadhavalhi_tts_rate", String(newRate));
     // Trigger setVoice so it updates live
-    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", newRate, pitch);
+    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", newRate, pitch, volume);
   };
 
   const handlePitchChange = (newPitch: number) => {
     setPitch(newPitch);
     localStorage.setItem("raadhavalhi_tts_pitch", String(newPitch));
     // Trigger setVoice so it updates live
-    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", rate, newPitch);
+    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", rate, newPitch, volume);
+  };
+
+  const handleVolumeChange = (newVol: number) => {
+    setVolume(newVol);
+    localStorage.setItem("raadhavalhi_tts_volume", String(newVol));
+    ttsPlayer.setGain(newVol);
   };
 
   const handleDownloadPack = async (pack: PiperVoicePack) => {
@@ -139,7 +152,7 @@ export default function TtsSettings() {
     }
   };
 
-  const handleTestVoice = async (packId?: string, edgeId?: string) => {
+  const handleTestVoice = async (packId?: string, _edgeId?: string, pollyId?: string) => {
     if (isPlayingTest) {
       ttsPlayer.stop();
       setIsPlayingTest(false);
@@ -150,14 +163,14 @@ export default function TtsSettings() {
     const testText =
       "Hello! Welcome to Raadhavalhi News. This is a live preview of your chosen neural speech voice.";
 
-    const testEngine = packId ? "piper" : edgeId ? "edgetts" : engine;
+    const testEngine = packId ? "piper" : pollyId ? "polly" : engine;
     const testPiper = packId || piperVoice;
-    const testEdge = edgeId || edgeVoice;
+    if (pollyId) ttsPlayer.setPolly(pollyId, "neural");
 
     ttsPlayer.setCallbacks({
       onPlay: () => {
         setIsPlayingTest(true);
-        setActiveTestPack(packId || edgeId || "current");
+        setActiveTestPack(packId || pollyId || "current");
       },
       onEnded: () => {
         setIsPlayingTest(false);
@@ -171,8 +184,8 @@ export default function TtsSettings() {
     });
 
     // Make sure rate and pitch are applied before test
-    ttsPlayer.setEngine(testEngine, testPiper, testEdge);
-    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", rate, pitch);
+    ttsPlayer.setEngine(testEngine, testPiper, localStorage.getItem("raadhavalhi_narrate_lang") || "en-US");
+    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", rate, pitch, volume);
     await ttsPlayer.play(testText);
   };
 
@@ -186,7 +199,7 @@ export default function TtsSettings() {
         <div>
           <h2 className="text-xl font-extrabold text-white">TTS Engine & Voice Packs</h2>
           <p className="text-xs text-neutral-400">
-            Configure Piper Neural WASM voice packs or OpenAI / Edge TTS.
+            Browser WebSpeech (free, no download) or optional Piper local models.
           </p>
         </div>
       </div>
@@ -197,6 +210,52 @@ export default function TtsSettings() {
           Select Active TTS Engine
         </label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* WebSpeech Engine (default, free) */}
+          <div
+            onClick={() => handleSelectEngine("webspeech")}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer relative ${
+              engine === "webspeech"
+                ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10"
+                : "border-white/10 bg-white/5 hover:bg-white/10"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Globe className={`w-5 h-5 ${engine === "webspeech" ? "text-amber-400" : "text-neutral-400"}`} />
+              {engine === "webspeech" && (
+                <span className="text-[10px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
+                  ACTIVE
+                </span>
+              )}
+            </div>
+            <div className="font-bold text-white text-sm">Browser WebSpeech</div>
+            <div className="text-xs text-neutral-400 mt-1">
+              Free built-in system voices. Zero download, zero API key — works on every device.
+            </div>
+          </div>
+
+          {/* Polly Engine */}
+          <div
+            onClick={() => handleSelectEngine("polly")}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer relative ${
+              engine === "polly"
+                ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10"
+                : "border-white/10 bg-white/5 hover:bg-white/10"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Cloud className="w-5 h-5 text-amber-400" />
+              {engine === "polly" && (
+                <span className="text-[10px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
+                  ACTIVE
+                </span>
+              )}
+            </div>
+            <div className="font-bold text-white text-sm">AWS Polly (Cloud)</div>
+            <div className="text-xs text-neutral-400 mt-1">
+              Studio-quality neural voices. Needs AWS keys (free tier). Best quality.
+            </div>
+          </div>
+
           {/* Piper Engine */}
           <div
             onClick={() => handleSelectEngine("piper")}
@@ -216,53 +275,7 @@ export default function TtsSettings() {
             </div>
             <div className="font-bold text-white text-sm">Piper TTS (WASM)</div>
             <div className="text-xs text-neutral-400 mt-1">
-              Local neural models (Ryan High, LJSpeech High). High speed, offline ready.
-            </div>
-          </div>
-
-          {/* Edge TTS Engine */}
-          <div
-            onClick={() => handleSelectEngine("edgetts")}
-            className={`p-4 rounded-2xl border transition-all cursor-pointer relative ${
-              engine === "edgetts"
-                ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10"
-                : "border-white/10 bg-white/5 hover:bg-white/10"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <Radio className="w-5 h-5 text-amber-400" />
-              {engine === "edgetts" && (
-                <span className="text-[10px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
-                  ACTIVE
-                </span>
-              )}
-            </div>
-            <div className="font-bold text-white text-sm">Edge TTS (Neural)</div>
-            <div className="text-xs text-neutral-400 mt-1">
-              Microsoft Edge ReadAloud neural voices (Ava, Andrew, Aria). Ultra realistic.
-            </div>
-          </div>
-
-          {/* WebSpeech Engine */}
-          <div
-            onClick={() => handleSelectEngine("webspeech")}
-            className={`p-4 rounded-2xl border transition-all cursor-pointer relative ${
-              engine === "webspeech"
-                ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10"
-                : "border-white/10 bg-white/5 hover:bg-white/10"
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <Globe className="w-5 h-5 text-neutral-400" />
-              {engine === "webspeech" && (
-                <span className="text-[10px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
-                  ACTIVE
-                </span>
-              )}
-            </div>
-            <div className="font-bold text-white text-sm">Browser WebSpeech</div>
-            <div className="text-xs text-neutral-400 mt-1">
-              Standard built-in system voice player. Zero download required.
+              Local neural models (Ryan High, LJSpeech High). Offline ready — ~114 MB download.
             </div>
           </div>
         </div>
@@ -403,25 +416,32 @@ export default function TtsSettings() {
         </div>
       )}
 
-      {/* EDGE TTS VOICES SECTION */}
-      {engine === "edgetts" && (
+      {/* POLLY TTS VOICES SECTION */}
+      {engine === "polly" && (
         <div className="space-y-4 pt-2">
           <div className="flex items-center gap-2">
-            <Radio className="w-4 h-4 text-amber-400" />
+            <Cloud className="w-4 h-4 text-amber-400" />
             <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400">
-              Edge Neural Voices
+              AWS Polly Neural Voices
             </h3>
           </div>
 
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-200/90">
+            Needs AWS credentials. Set <code className="font-mono">AWS_ACCESS_KEY_ID</code>,{" "}
+            <code className="font-mono">AWS_SECRET_ACCESS_KEY</code>, and{" "}
+            <code className="font-mono">AWS_REGION</code> in your <code className="font-mono">.env</code>{" "}
+            (dev) or wrangler vars (prod). Free tier: 1M neural chars/month. See README → "AWS Polly setup".
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {EDGE_VOICES.map((voice) => {
-              const isSelected = edgeVoice === voice.id;
+            {POLLY_VOICES.map((voice) => {
+              const isSelected = pollyVoiceId === voice.id;
               const isTestingThis = isPlayingTest && activeTestPack === voice.id;
 
               return (
                 <div
                   key={voice.id}
-                  onClick={() => handleSelectEdge(voice.id)}
+                  onClick={() => handleSelectPolly(voice.id)}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                     isSelected
                       ? "border-amber-500 bg-amber-500/10 shadow-md"
@@ -441,7 +461,7 @@ export default function TtsSettings() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleTestVoice(undefined, voice.id);
+                      handleTestVoice(undefined, undefined, voice.id);
                     }}
                     className="p-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors shrink-0"
                     title="Preview voice"

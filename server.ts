@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { synthesizeEdgeTts } from "./src/lib/edgeTtsCore";
+import { synthesizePolly } from "./src/lib/pollyCore";
 import { fetchEnrichedFeed } from "./src/lib/feedEnrich";
 
 async function startServer() {
@@ -10,33 +10,31 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Edge TTS Endpoint — Microsoft Edge ReadAloud neural voices.
-  // Uses the shared Web-API implementation so behavior is identical in dev and
-  // in the Cloudflare Worker (src/worker.ts).
-  app.post("/api/tts/edge", async (req, res) => {
+  // AWS Polly TTS endpoint — neural/Standard voices via the official Polly API.
+  // Credentials stay server-side (see README "AWS Polly setup"). The shared
+  // Web-API implementation runs identically in dev and the Cloudflare Worker.
+  app.post("/api/tts/polly", async (req, res) => {
     try {
-      const { text, voiceId, rate = 1, pitch = 1 } = req.body;
+      const { text, voiceId, engine = "neural", rate = 1 } = req.body;
       if (!text || typeof text !== "string") {
         return res.status(400).json({ error: "Text string is required" });
       }
 
-      const { audio, contentType } = await synthesizeEdgeTts(
+      const { audio, contentType } = await synthesizePolly(
         text,
-        voiceId || "en-US-AvaMultilingualNeural",
-        Number(rate) || 1,
-        Number(pitch) || 1
+        voiceId || "Matthew",
+        engine === "standard" ? "standard" : "neural",
+        Number(rate) || 1
       );
 
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=86400");
       return res.send(Buffer.from(audio));
     } catch (error: any) {
-      // IMPORTANT: do NOT silently fall back to a single monotone voice here.
-      // That fallback made every Edge voice sound identical. Instead report the
-      // real failure so the client UI can surface it and the user can switch to
-      // the Piper engine (which is fully local and always works offline).
-      console.error("Edge TTS Backend Error:", error);
-      return res.status(502).json({ error: error?.message || "Edge TTS synthesis failed" });
+      // Honest error (e.g. missing AWS creds) — the app surfaces it to the user
+      // instead of silently falling back to a monotone voice.
+      console.error("Polly TTS Backend Error:", error);
+      return res.status(502).json({ error: error?.message || "Polly TTS synthesis failed" });
     }
   });
 
