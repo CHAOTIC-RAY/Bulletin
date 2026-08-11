@@ -17,14 +17,16 @@ export default function LanguageSetup({ onDone }: Props) {
     onDone(uiLocale, narrateLang);
   };
 
+  const isRtl = uiLocale === "dv";
+
   return (
-    <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col pt-6 pb-8 px-4 sm:px-6 overflow-y-auto">
+    <div dir={isRtl ? "rtl" : "ltr"} className={`min-h-[100dvh] bg-neutral-950 text-white flex flex-col pt-6 pb-8 px-4 sm:px-6 overflow-y-auto ${isRtl ? "font-thaana text-right" : ""}`}>
       <div className="max-w-2xl w-full mx-auto flex-1 flex flex-col">
         {/* Top Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-amber-500 rounded-2xl flex items-center justify-center font-black text-xl text-neutral-950 shadow-lg shadow-amber-500/20">
-              H
+              {uiLocale === "dv" ? "ރ" : "R"}
             </div>
             <div>
               <h1 className="text-xl font-extrabold tracking-tight">Audio & Speech Settings</h1>

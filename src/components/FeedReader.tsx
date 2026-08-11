@@ -60,8 +60,10 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
       .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "")
       .replace(/javascript:/gi, "");
 
+  const isRtl = locale === "dv";
+
   return createPortal(
-    <div className="fixed inset-0 z-[9999] bg-neutral-50 text-neutral-900 flex flex-col dark:bg-neutral-950 dark:text-white" style={{ height: "100dvh" }}>
+    <div dir={isRtl ? "rtl" : "ltr"} className={`fixed inset-0 z-[9999] bg-neutral-50 text-neutral-900 flex flex-col dark:bg-neutral-950 dark:text-white ${isRtl ? "font-thaana" : ""}`} style={{ height: "100dvh" }}>
       <div className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10">
         <button onClick={onClose} className="p-2 rounded-full bg-black/5 dark:bg-white/10">{t("reader.back")}</button>
         <span className="text-[10px] font-bold uppercase tracking-widest truncate max-w-[50%]">{item.subscriptionTitle}</span>
@@ -82,11 +84,11 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
         {item.content ? (
           <div
             dir={dir}
-            className={`prose-reader text-base leading-relaxed ${dir === "rtl" ? "font-thaana text-right" : ""}`}
+            className={`prose-reader text-lg sm:text-xl md:text-2xl leading-relaxed ${dir === "rtl" ? "font-thaana text-right" : ""}`}
             dangerouslySetInnerHTML={{ __html: sanitize(item.content) }}
           />
         ) : (
-          <p dir={textDirection(item.summary || "")} className="text-base leading-relaxed whitespace-pre-wrap">{item.summary}</p>
+          <p dir={textDirection(item.summary || "")} className={`text-lg sm:text-xl md:text-2xl leading-relaxed whitespace-pre-wrap ${textDirection(item.summary || "") === "rtl" ? "font-thaana text-right" : ""}`}>{item.summary}</p>
         )}
 
         {item.images && item.images.length > 1 && (

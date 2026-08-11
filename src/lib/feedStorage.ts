@@ -117,8 +117,67 @@ export function getFeedSubscriptions(): FeedSubscription[] {
 export function saveFeedSubscriptions(subs: FeedSubscription[]): void {
   writeJson(SUBSCRIPTIONS_KEY, subs);
 }
+export const INITIAL_DEFAULT_FEED_ITEMS: FeedItem[] = [
+  {
+    id: "init-edition-tourism",
+    subscriptionId: "feed-https-edition-mv-feed-",
+    subscriptionTitle: "Edition",
+    title: "Maldives Commits to Sustainable Eco-Tourism and Coral Conservation",
+    link: "https://edition.mv/",
+    summary: "The Ministry of Tourism has announced a landmark initiative focusing on sustainable local eco-tourism and active coral reef restoration across several key atolls in the Maldives, aiming to balance growing traveler numbers with sensitive marine biology.",
+    content: "<p>The Ministry of Tourism, in collaboration with leading marine biologists and local council authorities, has announced a landmark initiative focusing on sustainable local eco-tourism and active coral reef restoration across several key atolls in the Maldives.</p><p>This initiative aims to balance growing traveler numbers with sensitive marine ecosystems, ensuring the Maldives remains a pristine, bio-diverse destination for generations to come. Community-led coral nurseries and strict eco-resort guidelines will be established.</p>",
+    publishedAt: Date.now() - 3600000,
+    imageUrl: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80",
+    images: ["https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80", "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80"],
+    read: false
+  },
+  {
+    id: "init-bbc-climate",
+    subscriptionId: "feed-https-feeds-bbci-co-uk-news-world-rss-xml",
+    subscriptionTitle: "BBC World",
+    title: "Global Ocean Treaty Sets Ambitious Targets for Deep-Sea Protection",
+    link: "https://www.bbc.com/news/world",
+    summary: "A newly ratified international ocean conservation treaty sets binding targets to protect at least 30% of the world's open oceans by 2030, offering a major boost for migratory marine species and sensitive reef habitats.",
+    content: "<p>A newly ratified international ocean conservation treaty sets binding targets to protect at least 30% of the world's open oceans by 2030, offering a major boost for migratory marine species and sensitive reef habitats.</p><p>The agreement introduces strict regulations on high-seas fishing and deep-sea mining, establishing vast marine sanctuaries across international waters where commercial exploitation will be prohibited.</p>",
+    publishedAt: Date.now() - 7200000,
+    imageUrl: "https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1200&q=80",
+    images: ["https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&w=1200&q=80", "https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?auto=format&fit=crop&w=1200&q=80"],
+    read: false
+  },
+  {
+    id: "init-mihaaru-local",
+    subscriptionId: "feed-https-mihaaru-com-feed-",
+    subscriptionTitle: "Mihaaru",
+    title: "ލޯކަލް ޓޫރިޒަމް ފުޅާކުރުމަށް ރާއްޖޭގެ ރަށްތަކުގައި އާ މަޝްރޫއުތަކެއް ފަށައިފި",
+    link: "https://mihaaru.com/",
+    summary: "ރާއްޖޭގެ އެކި އަތޮޅުތަކުގެ ރަށްތަކުގައި ތިމާވެއްޓާ ރައްޓެހި ގޮތަކަށް ލޯކަލް ޓޫރިޒަމް ކުރިއެރުވުމަށްޓަކައި ހާއްސަ މަޝްރޫއުތަކެއް ފަށައިފިއެވެ. މީގެ ބޭނުމަކީ ރަށްރަށުގެ އިގްތިސާދު ވަރުގަދަކޮށް ވަޒީފާގެ ފުރުސަތުތައް އިތުރުކުރުމެވެ.",
+    content: "<p>ރާއްޖޭގެ އެކި އަތޮޅުތަކުގެ ރަށްތަކުގައި ތިމާވެއްޓާ ރައްޓެހި ގޮތަކަށް ލޯކަލް ޓޫރިޒަމް ކުރިއެރުވުމަށްޓަކައި ހާއްސަ މަޝްރޫއުތަކެއް ފަށައިފިއެވެ.</p><p>މީގެ ބޭނުމަކީ ރަށްރަށުގެ އިގްތިސާދު ވަރުގަދަކޮށް ވަޒީފާގެ ފުރުސަތުތައް އިތުރުކުރުމެވެ. މި މަޝްރޫއުގެ ދަށުން ރަށްރަށުގެ ގުދުރަތީ ރީތިކަން ހިމާޔަތްކުރުމާ އެކު، ފަތުރުވެރިންނަށް ތަފާތު ތަޖުރިބާތަކެއް ލިބިގެންދާނެއެވެ.</p>",
+    publishedAt: Date.now() - 10800000,
+    imageUrl: "https://images.unsplash.com/photo-1533753659765-98bd000fc7bc?auto=format&fit=crop&w=1200&q=80",
+    images: ["https://images.unsplash.com/photo-1533753659765-98bd000fc7bc?auto=format&fit=crop&w=1200&q=80", "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&w=1200&q=80"],
+    read: false
+  },
+  {
+    id: "init-psm-ferry",
+    subscriptionId: "feed-https-psmnews-mv-en-feed-",
+    subscriptionTitle: "PSM News",
+    title: "New High-Speed Ferry Network Seamlessly Connects Central Atolls",
+    link: "https://psmnews.mv/en/",
+    summary: "The newly expanded integrated high-speed ferry network has commenced operations in the central atolls, providing affordable, regular, and convenient public transportation between neighboring islands.",
+    content: "<p>The newly expanded integrated high-speed ferry network has commenced operations in the central atolls, providing affordable, regular, and convenient public transportation between neighboring islands.</p><p>This initiative, funded by the national development bank, aims to foster greater economic integration, enhance education/healthcare access, and support local business travel across the archipelago.</p>",
+    publishedAt: Date.now() - 14400000,
+    imageUrl: "https://images.unsplash.com/photo-1516690561799-46d8f74f9abf?auto=format&fit=crop&w=1200&q=80",
+    images: ["https://images.unsplash.com/photo-1516690561799-46d8f74f9abf?auto=format&fit=crop&w=1200&q=80", "https://images.unsplash.com/photo-1439066615861-d1af74d74000?auto=format&fit=crop&w=1200&q=80"],
+    read: false
+  }
+];
+
 export function getFeedItems(): FeedItem[] {
-  return readJson<FeedItem[]>(ITEMS_KEY, []);
+  const items = readJson<FeedItem[]>(ITEMS_KEY, []);
+  if (items.length === 0) {
+    return INITIAL_DEFAULT_FEED_ITEMS;
+  }
+  return items;
 }
 export function saveFeedItems(items: FeedItem[]): void {
   writeJson(ITEMS_KEY, items.slice(0, 500));

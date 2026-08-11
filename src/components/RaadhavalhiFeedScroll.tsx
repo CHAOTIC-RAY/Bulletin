@@ -75,7 +75,13 @@ export default function RaadhavalhiFeedScroll({ items, narrateLang, onOpen, onSa
             if (activeIndexRef.current !== index) return;
 
             currentStepRef.current = "summary";
-            if (item.summary && item.summary.trim()) {
+            const detailedText = item.summary && item.summary.trim()
+              ? item.summary
+              : item.content
+              ? item.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+              : "";
+
+            if (detailedText.trim()) {
               tts.setCallbacks({
                 onPlay: () => setIsReading(true),
                 onPause: () => setIsReading(false),
@@ -94,7 +100,7 @@ export default function RaadhavalhiFeedScroll({ items, narrateLang, onOpen, onSa
                   }
                 },
               });
-              tts.play(item.summary);
+              tts.play(detailedText);
             } else {
               currentStepRef.current = "idle";
               setIsReading(false);
@@ -293,11 +299,11 @@ export default function RaadhavalhiFeedScroll({ items, narrateLang, onOpen, onSa
                   {item.content ? (
                     <div
                       dir={dir}
-                      className={`prose-reader text-sm leading-relaxed text-neutral-200 ${dir === "rtl" ? "font-thaana text-right" : ""}`}
+                      className={`prose-reader text-base sm:text-lg md:text-xl leading-relaxed text-neutral-200 ${dir === "rtl" ? "font-thaana text-right" : ""}`}
                       dangerouslySetInnerHTML={{ __html: sanitize(item.content) }}
                     />
                   ) : (
-                    <p className="text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap">{item.summary}</p>
+                    <p dir={dir} className={`text-base sm:text-lg md:text-xl leading-relaxed text-neutral-200 whitespace-pre-wrap ${dir === "rtl" ? "font-thaana text-right" : ""}`}>{item.summary}</p>
                   )}
 
                   {item.images && item.images.length > 1 && (

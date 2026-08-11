@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { synthesizeEdgeTts } from "./src/lib/edgeTtsCore";
+import { fetchEnrichedFeed } from "./src/lib/feedEnrich";
 
 async function startServer() {
   const app = express();
@@ -46,7 +47,6 @@ async function startServer() {
       if (!url || typeof url !== "string") {
         return res.status(400).json({ error: "URL is required" });
       }
-      const { fetchEnrichedFeed } = await import("./src/lib/feedEnrich");
       const feed = await fetchEnrichedFeed(decodeURIComponent(url));
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Cache-Control", "public, max-age=300");

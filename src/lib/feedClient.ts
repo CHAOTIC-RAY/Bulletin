@@ -93,23 +93,28 @@ export async function fetchFeed(sub: FeedSubscription): Promise<FeedItem[]> {
   try {
     const response = await fetch(`/api/feed/fetch?url=${encodeURIComponent(sub.feedUrl)}`);
     if (response.ok) {
-      const json: any = await response.json();
-      const items: any[] = json?.items || [];
-      if (items.length) {
-        return items.map((e, i) => ({
-          id: `${sub.id}-${e.id || e.link || i}`,
-          subscriptionId: sub.id,
-          subscriptionTitle: sub.title,
-          title: String(e.title || "Untitled").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
-          link: String(e.link || ""),
-          author: e.author || undefined,
-          summary: e.summary ? String(e.summary).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : undefined,
-          content: e.content || e.summary || undefined,
-          publishedAt: e.publishedAt || Date.now() - i * 60000,
-          imageUrl: e.imageUrl || (e.images && e.images[0]) || undefined,
-          images: e.images && e.images.length ? e.images : e.imageUrl ? [e.imageUrl] : undefined,
-          read: false,
-        }));
+      const contentType = response.headers.get("Content-Type") || "";
+      if (contentType.includes("application/json")) {
+        const json: any = await response.json();
+        const items: any[] = json?.items || [];
+        if (items.length) {
+          return items.map((e, i) => ({
+            id: `${sub.id}-${e.id || e.link || i}`,
+            subscriptionId: sub.id,
+            subscriptionTitle: sub.title,
+            title: String(e.title || "Untitled").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+            link: String(e.link || ""),
+            author: e.author || undefined,
+            summary: e.summary ? String(e.summary).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : undefined,
+            content: e.content || e.summary || undefined,
+            publishedAt: e.publishedAt || Date.now() - i * 60000,
+            imageUrl: e.imageUrl || (e.images && e.images[0]) || undefined,
+            images: e.images && e.images.length ? e.images : e.imageUrl ? [e.imageUrl] : undefined,
+            read: false,
+          }));
+        }
+      } else {
+        console.warn(`Enriched feed fetch for ${sub.title} returned non-JSON content: ${contentType}`);
       }
     }
   } catch (err) {
@@ -132,10 +137,17 @@ export async function fetchFeed(sub: FeedSubscription): Promise<FeedItem[]> {
   try {
     const res = await fetch(RSS_PROXY + encodeURIComponent(sub.feedUrl));
     if (!res.ok) return [];
-    const json: any = await res.json();
-    if (json.status !== "ok") return [];
-    return parseFeedJson(json, sub);
-  } catch {
+    const contentType = res.headers.get("Content-Type") || "";
+    if (contentType.includes("application/json")) {
+      const json: any = await res.json();
+      if (json.status !== "ok") return [];
+      return parseFeedJson(json, sub);
+    } else {
+      console.warn(`rss2json proxy for ${sub.title} returned non-JSON content: ${contentType}`);
+      return [];
+    }
+  } catch (err) {
+    console.warn(`rss2json fallback failed for ${sub.title}`, err);
     return [];
   }
 }

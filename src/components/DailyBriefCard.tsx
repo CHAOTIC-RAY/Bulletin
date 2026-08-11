@@ -67,9 +67,11 @@ export default function DailyBriefCard({ items, narrateLang }: Props) {
     setPlaying(true);
   };
 
+  const isRtl = locale === "dv";
+
   const overlay = open
     ? createPortal(
-        <div className="fixed inset-0 z-[9999] bg-neutral-950 text-white flex flex-col" style={{ height: "100dvh" }}>
+        <div dir={isRtl ? "rtl" : "ltr"} className={`fixed inset-0 z-[9999] bg-neutral-950 text-white flex flex-col ${isRtl ? "font-thaana text-right" : ""}`} style={{ height: "100dvh" }}>
           <div className="flex items-center justify-between p-4 border-b border-white/10">
             <button onClick={() => setOpen(false)} className="p-2 rounded-full bg-white/10">←</button>
             <span className="text-[10px] font-bold uppercase tracking-widest">{t("brief.title")}</span>
@@ -106,7 +108,8 @@ export default function DailyBriefCard({ items, narrateLang }: Props) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="w-full text-left bg-neutral-900 border border-white/10 rounded-2xl p-4 hover:border-amber-400/40 transition"
+        dir={isRtl ? "rtl" : "ltr"}
+        className={`w-full text-left bg-neutral-900 border border-white/10 rounded-2xl p-4 hover:border-amber-400/40 transition ${isRtl ? "font-thaana text-right" : ""}`}
       >
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1.5">

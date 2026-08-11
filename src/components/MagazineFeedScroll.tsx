@@ -180,36 +180,90 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
             {filteredItems.map((item, index) => {
               const dir = textDirection(item.title);
 
-              // Newspaper broadsheet layout logic
-              let colSpan = "md:col-span-4";
+              // Newspaper broadsheet layout logic: mathematically balanced to prevent empty holes/gaps
+              let colSpan = "col-span-12 md:col-span-4";
               let isHero = false;
-              let isFeature = false;
+              let isSpecial = false;
+              let isHalfWidth = false; // md:col-span-6
+              let isWide = false;      // md:col-span-8
+              let isFullWidth = false; // md:col-span-12
 
               if (index === 0) {
-                colSpan = "md:col-span-8 md:row-span-2";
+                colSpan = "col-span-12 md:col-span-8 md:row-span-2";
                 isHero = true;
-              } else if (index === 1 || index === 2) {
-                colSpan = "md:col-span-4";
-              } else if (index % 6 === 0) {
-                colSpan = "md:col-span-12";
-                isFeature = true;
-              } else if (index % 5 === 0) {
-                colSpan = "md:col-span-6";
-              } else if (index % 4 === 0) {
-                colSpan = "md:col-span-6";
+              } else if (index === 1) {
+                colSpan = "col-span-12 md:col-span-4";
+              } else if (index === 2) {
+                colSpan = "col-span-12 md:col-span-4";
+              } else {
+                // Repeating pattern of 13 elements starting from index 3
+                const k = (index - 3) % 13;
+                if (k === 0 || k === 1) {
+                  colSpan = "col-span-12 md:col-span-6";
+                  isHalfWidth = true;
+                } else if (k === 2) {
+                  colSpan = "col-span-12 md:col-span-12";
+                  isFullWidth = true;
+                } else if (k === 3 || k === 4 || k === 5) {
+                  colSpan = "col-span-12 md:col-span-4";
+                } else if (k === 6) {
+                  colSpan = "col-span-12 md:col-span-8";
+                  isWide = true;
+                } else if (k === 7) {
+                  colSpan = "col-span-12 md:col-span-4";
+                } else if (k === 8) {
+                  colSpan = "col-span-12 md:col-span-4";
+                } else if (k === 9) {
+                  colSpan = "col-span-12 md:col-span-8";
+                  isWide = true;
+                } else if (k === 10 || k === 11) {
+                  colSpan = "col-span-12 md:col-span-6";
+                  isHalfWidth = true;
+                } else if (k === 12) {
+                  colSpan = "col-span-12 md:col-span-12";
+                  isFullWidth = true;
+                }
+              }
+
+              isSpecial = index > 0 && index % 5 === 0;
+
+              // Title fonts & sizes based on role
+              let titleClass = "text-lg sm:text-xl line-clamp-3";
+              if (isHero) {
+                titleClass = "text-2xl sm:text-4xl md:text-5xl";
+              } else if (isFullWidth) {
+                titleClass = "text-xl sm:text-3xl md:text-4xl";
+              } else if (isWide) {
+                titleClass = "text-xl sm:text-2xl md:text-3xl";
+              } else if (isHalfWidth) {
+                titleClass = "text-xl sm:text-2xl";
+              }
+
+              // Summary fonts & sizes based on role
+              let summaryClass = "text-sm sm:text-base md:text-lg line-clamp-3";
+              if (isHero) {
+                summaryClass = "text-lg sm:text-xl md:text-2xl";
+              } else if (isFullWidth) {
+                summaryClass = "text-base sm:text-lg md:text-xl line-clamp-4";
+              } else if (isWide) {
+                summaryClass = "text-sm sm:text-base md:text-lg line-clamp-3";
               }
 
               return (
                 <article
                   key={item.id}
                   onClick={() => onOpen(item)}
-                  className={`group cursor-pointer bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 p-5 sm:p-6 shadow-[2px_2px_0px_rgba(0,0,0,0.08)] dark:shadow-[2px_2px_0px_rgba(255,255,255,0.05)] hover:border-amber-600 dark:hover:border-amber-500 hover:shadow-lg transition-all duration-300 flex flex-col ${colSpan}`}
+                  className={`group cursor-pointer bg-white dark:bg-neutral-900 border ${
+                    isSpecial 
+                      ? "border-amber-500 dark:border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.05)]" 
+                      : "border-neutral-300 dark:border-neutral-800"
+                  } p-5 sm:p-6 shadow-[2px_2px_0px_rgba(0,0,0,0.08)] dark:shadow-[2px_2px_0px_rgba(255,255,255,0.05)] hover:border-amber-600 dark:hover:border-amber-500 hover:shadow-lg transition-all duration-300 flex flex-col ${colSpan}`}
                 >
                   {/* Article Top Tagline & Date */}
                   <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-2 mb-3">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-mono font-extrabold uppercase tracking-widest text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
-                        {isHero ? "FRONT PAGE DISPATCH" : isFeature ? "SPECIAL REPORT" : item.subscriptionTitle}
+                        {isHero ? "FRONT PAGE DISPATCH" : isSpecial ? "SPECIAL DISPATCH" : item.subscriptionTitle}
                       </span>
                     </div>
 
@@ -229,53 +283,56 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
                     </button>
                   </div>
 
-                  {/* Hero / Feature Image with Print Photo Border */}
-                  {item.imageUrl && (
-                    <div className={`w-full overflow-hidden mb-4 p-1 bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 ${isHero ? "aspect-[16/9]" : isFeature ? "aspect-[21/9]" : "aspect-[16/10]"}`}>
-                      <div className="w-full h-full overflow-hidden relative">
-                        <img
-                          src={item.imageUrl}
-                          alt=""
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter grayscale-[15%] group-hover:grayscale-0"
-                        />
-                        <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-md text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ArrowUpRight className="w-4 h-4" />
+                  {/* Horizontal container for FullWidth/Wide layout on medium screens */}
+                  <div className={`flex-1 flex flex-col ${(isFullWidth || isWide) && item.imageUrl ? "md:grid md:grid-cols-12 md:gap-6" : ""}`}>
+                    {item.imageUrl && (
+                      <div className={`overflow-hidden mb-4 p-1 bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 ${
+                        isFullWidth || isWide ? "md:col-span-5 md:mb-0" : ""
+                      } ${isHero ? "aspect-[16/9]" : isSpecial ? "aspect-[21/9]" : "aspect-[16/10]"}`}>
+                        <div className="w-full h-full overflow-hidden relative">
+                          <img
+                            src={item.imageUrl}
+                            alt=""
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter grayscale-[15%] group-hover:grayscale-0"
+                          />
+                          <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-md text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ArrowUpRight className="w-4 h-4" />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Headline */}
-                  <h2
-                    dir={dir}
-                    className={`font-serif font-black leading-tight text-neutral-950 dark:text-white group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors mb-3 ${
-                      isHero
-                        ? "text-2xl sm:text-4xl md:text-5xl"
-                        : isFeature
-                        ? "text-2xl sm:text-3xl"
-                        : "text-lg sm:text-xl line-clamp-3"
-                    } ${dir === "rtl" ? "font-thaana" : ""}`}
-                  >
-                    {item.title}
-                  </h2>
+                    {/* Text Container */}
+                    <div className={`flex flex-col flex-1 ${isFullWidth || isWide ? "md:col-span-7" : ""}`}>
+                      {/* Headline */}
+                      <h2
+                        dir={dir}
+                        className={`font-serif font-black leading-tight text-neutral-950 dark:text-white group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors mb-3 ${titleClass} ${dir === "rtl" ? "font-thaana" : ""}`}
+                      >
+                        {item.title}
+                      </h2>
 
-                  {/* Article Dateline & Summary with Drop Cap for Hero */}
-                  {item.summary && (
-                    <div className={`text-neutral-700 dark:text-neutral-300 leading-relaxed ${isHero ? "text-base sm:text-lg" : "text-xs sm:text-sm line-clamp-3"} mb-4 font-serif`}>
-                      {isHero ? (
-                        <p className="first-letter:float-left first-letter:text-5xl first-letter:font-serif first-letter:font-black first-letter:mr-3 first-letter:leading-none first-letter:text-neutral-950 dark:first-letter:text-white">
-                          <strong className="font-sans font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 mr-2">
-                            [DISPATCH]
-                          </strong>
-                          {item.summary}
-                        </p>
-                      ) : (
-                        <p>{item.summary}</p>
+                      {/* Article Dateline & Summary with Drop Cap for Hero */}
+                      {item.summary && (
+                        <div dir={dir} className={`text-neutral-700 dark:text-neutral-300 leading-relaxed ${summaryClass} mb-4 ${dir === "rtl" ? "font-thaana text-right" : "font-serif"}`}>
+                          {isHero ? (
+                            <p className={dir === "rtl" ? "" : "first-letter:float-left first-letter:text-5xl first-letter:font-serif first-letter:font-black first-letter:mr-3 first-letter:leading-none first-letter:text-neutral-950 dark:first-letter:text-white"}>
+                              {dir !== "rtl" && (
+                                <strong className="font-sans font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 mr-2">
+                                  [DISPATCH]
+                                </strong>
+                              )}
+                              {item.summary}
+                            </p>
+                          ) : (
+                            <p>{item.summary}</p>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
+                  </div>
 
                   {/* Newspaper Footer Meta */}
                   <div className="mt-auto pt-3 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px] font-mono text-neutral-500 dark:text-neutral-400">

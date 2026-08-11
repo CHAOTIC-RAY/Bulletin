@@ -116,6 +116,27 @@ export class RaadhavalhiTts {
   // --- 1. Piper TTS Playback ---
   private async playPiper(sentences: string[], playId: number) {
     try {
+      const bufferPromiseCache = new Map<number, Promise<AudioBuffer>>();
+
+      const getAudioBuffer = (index: number): Promise<AudioBuffer> => {
+        if (!bufferPromiseCache.has(index)) {
+          const promise = synthesizePiperAudio(sentences[index], this.piperPackId);
+          bufferPromiseCache.set(index, promise);
+        }
+        return bufferPromiseCache.get(index)!;
+      };
+
+      const prefetch = (currentIndex: number) => {
+        for (let i = 1; i <= 2; i++) {
+          const nextIndex = currentIndex + i;
+          if (nextIndex < sentences.length) {
+            getAudioBuffer(nextIndex).catch((err) => {
+              console.warn(`Piper pre-synthesis failed for index ${nextIndex}`, err);
+            });
+          }
+        }
+      };
+
       let idx = 0;
       const playNextSentence = async () => {
         if (!this.playing || playId !== this.currentPlayId || idx >= sentences.length) {
@@ -130,7 +151,10 @@ export class RaadhavalhiTts {
         this.cb.onSubtitle?.(sentence);
 
         try {
-          const audioBuffer = await synthesizePiperAudio(sentence, this.piperPackId);
+          // Trigger prefetch for the next sentences immediately
+          prefetch(idx);
+
+          const audioBuffer = await getAudioBuffer(idx);
           if (!this.playing || playId !== this.currentPlayId) return;
 
           if (!this.audioCtx || this.audioCtx.state === "closed") {
@@ -169,6 +193,32 @@ export class RaadhavalhiTts {
   // --- 2. Edge TTS Playback ---
   private async playEdgeTts(sentences: string[], playId: number) {
     try {
+      const blobPromiseCache = new Map<number, Promise<Blob>>();
+
+      const getBlob = (index: number): Promise<Blob> => {
+        if (!blobPromiseCache.has(index)) {
+          const promise = synthesizeEdgeTts(
+            sentences[index],
+            this.edgeVoiceId,
+            this.rate,
+            this.pitch
+          );
+          blobPromiseCache.set(index, promise);
+        }
+        return blobPromiseCache.get(index)!;
+      };
+
+      const prefetch = (currentIndex: number) => {
+        for (let i = 1; i <= 2; i++) {
+          const nextIndex = currentIndex + i;
+          if (nextIndex < sentences.length) {
+            getBlob(nextIndex).catch((err) => {
+              console.warn(`Edge pre-synthesis failed for index ${nextIndex}`, err);
+            });
+          }
+        }
+      };
+
       let idx = 0;
       const playNextSentence = async () => {
         if (!this.playing || playId !== this.currentPlayId || idx >= sentences.length) {
@@ -183,12 +233,10 @@ export class RaadhavalhiTts {
         this.cb.onSubtitle?.(sentence);
 
         try {
-          const blob = await synthesizeEdgeTts(
-            sentence,
-            this.edgeVoiceId,
-            this.rate,
-            this.pitch
-          );
+          // Trigger prefetch for the next sentences immediately
+          prefetch(idx);
+
+          const blob = await getBlob(idx);
 
           if (!this.playing || playId !== this.currentPlayId) return;
 

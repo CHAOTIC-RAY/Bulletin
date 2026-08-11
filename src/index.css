@@ -23,8 +23,15 @@ body,
 }
 
 /* Dhivehi (Thaana) font fallback */
+@font-face {
+  font-family: "Faruma";
+  src: url("https://cdn.jsdelivr.net/gh/siyamex/dhivehifont/Faruma.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
 .font-thaana {
-  font-family: "MV Boli", "Faruma", "ThaanaFonts", "Microsoft Uighur", "Noto Nastaliq Urdu", serif;
+  font-family: "Faruma", "MV Boli", "ThaanaFonts", "Microsoft Uighur", "Noto Nastaliq Urdu", serif;
 }
 
 /* Ken Burns motion for single-image hero (dimension-aware in component) */

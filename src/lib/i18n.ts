@@ -34,10 +34,14 @@ const en: Dict = {
   "common.saved": "Saved",
   "common.source": "Source",
   "setup.easy": "Setup is easy",
+  "nav.immersive": "Immersive",
+  "nav.magazine": "Magazine",
+  "nav.closeBrief": "Close Brief",
+  "nav.loading": "Loading feeds...",
 };
 
 const dv: Dict = {
-  "app.name": "ހަވާ",
+  "app.name": "ރާދަވަޅި",
   "app.tagline": "ނިއުސް، އާއިން ބަދަލުކޮށެވަ",
   "onboarding.title": "ކޮންކަހަރެއް ތިމްގަން ބައލަނަން ބޭނުނޭ؟",
   "onboarding.subtitle": "ތިބޭ ބޭނުނެއް އިޚްތިޔާރުކޮށެވާ — ތިމްގަން ރައްޔާއި އެކު ސޯސްތައް ލޯޑްކޮށް ދޭނެމެއެވެ.",
@@ -60,6 +64,10 @@ const dv: Dict = {
   "common.saved": "ސޭވްކޮށް",
   "common.source": "ސޯސް",
   "setup.easy": "ސެޓްއަޕް ފަސޭހަ",
+  "nav.immersive": "އިމަރސިވް",
+  "nav.magazine": "މެގަޒިން",
+  "nav.closeBrief": "ބްރީފް ލައްޕާލާ",
+  "nav.loading": "ޚަބަރުތައް ލޯޑްވަނީ...",
 };
 
 const TABLES: Record<LocaleCode, Dict> = { en, dv };

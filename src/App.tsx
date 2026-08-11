@@ -10,7 +10,7 @@ import {
   TOPIC_FEED_GROUPS,
 } from "./lib/feedStorage";
 import { refreshAllSubscriptions, collectArticleImages } from "./lib/feedClient";
-import { getLocale, localeIsRtl, LocaleCode, t } from "./lib/i18n";
+import { getLocale, setLocale, localeIsRtl, LocaleCode, t } from "./lib/i18n";
 import RaadhavalhiFeedScroll from "./components/RaadhavalhiFeedScroll";
 import MagazineFeedScroll from "./components/MagazineFeedScroll";
 import DailyBriefCard from "./components/DailyBriefCard";
@@ -40,7 +40,11 @@ export default function App() {
     if (subs.length) {
       setScreen("home");
       setItems(getFeedItems());
-      void loadFeeds();
+      // Run background news generation with a delay to optimize initial frame rates
+      const timer = setTimeout(() => {
+        void loadFeeds();
+      }, 800);
+      return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -52,18 +56,24 @@ export default function App() {
   const loadFeeds = async () => {
     const subs = ensureDefaultSubscriptions().filter(isFeedSubscriptionEnabled);
     setRefreshing(true);
-    const incoming = await refreshAllSubscriptions(subs);
-    if (incoming.length) {
-      saveFeedItems(incoming);
-      setItems(incoming);
-    } else {
-      setItems(getFeedItems());
+    try {
+      const incoming = await refreshAllSubscriptions(subs);
+      if (incoming.length) {
+        saveFeedItems(incoming);
+        setItems(incoming);
+      } else {
+        setItems(getFeedItems());
+      }
+    } catch (e) {
+      console.error("Background feed load failed", e);
+    } finally {
+      setRefreshing(false);
     }
-    setRefreshing(false);
   };
 
   const onSetupDone = (ui: LocaleCode, narr: string) => {
     setUiLocale(ui);
+    setLocale(ui);
     setNarrateLang(narr);
     localStorage.setItem("raadhavalhi_narrate_lang", narr);
     
@@ -71,7 +81,11 @@ export default function App() {
     applySelectedFeedSources(TOPIC_FEED_GROUPS.map((g) => g.id));
     setScreen("home");
     setItems(getFeedItems());
-    void loadFeeds();
+    
+    // Start generating news in the background smoothly
+    setTimeout(() => {
+      void loadFeeds();
+    }, 800);
   };
 
   const openReader = async (item: FeedItem) => {
@@ -91,8 +105,18 @@ export default function App() {
 
   const isImmersive = viewMode === "immersive";
 
+  const displayedItems = items.filter((item) => {
+    const isThaana = /[\u0780-\u07BF]/.test(item.title) || 
+                     /[\u0780-\u07BF]/.test(item.summary || "") || 
+                     /[\u0780-\u07BF]/.test(item.content || "");
+    if (uiLocale !== "dv" && isThaana) {
+      return false;
+    }
+    return true;
+  });
+
   return (
-    <div className={`h-[100dvh] w-full overflow-hidden transition-colors duration-500 ${isImmersive ? 'bg-neutral-950 text-white' : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white'}`}>
+    <div className={`h-[100dvh] w-full overflow-hidden transition-colors duration-500 ${uiLocale === "dv" ? "font-thaana" : ""} ${isImmersive ? 'bg-neutral-950 text-white' : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white'}`}>
       
       {/* Top Header Navigation */}
       <div className={`absolute top-0 left-0 right-0 px-4 pt-6 pb-4 transition-all duration-300 pointer-events-none ${isImmersive ? 'z-50' : 'z-40'}`}>
@@ -100,9 +124,9 @@ export default function App() {
           
           <div className="flex items-center gap-3">
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xl tracking-tighter ${isImmersive ? 'bg-white text-black' : 'bg-black text-white dark:bg-white dark:text-black'}`}>
-              H
+              {uiLocale === "dv" ? "ރ" : "R"}
             </div>
-            <span className={`font-extrabold tracking-tight text-xl ${isImmersive ? 'text-white drop-shadow-md' : 'text-black dark:text-white'}`}>Raadhavalhi</span>
+            <span className={`font-extrabold tracking-tight text-xl ${isImmersive ? 'text-white drop-shadow-md' : 'text-black dark:text-white'}`}>{t("app.name")}</span>
           </div>
 
           <div className={`flex items-center p-1 rounded-full backdrop-blur-md shadow-sm border ${isImmersive ? 'bg-black/40 border-white/10' : 'bg-white/80 dark:bg-black/50 border-neutral-200 dark:border-neutral-800'}`}>
@@ -115,7 +139,7 @@ export default function App() {
               }`}
             >
               <Smartphone className="w-4 h-4" />
-              <span className="hidden sm:inline">Immersive</span>
+              <span className="hidden sm:inline">{t("nav.immersive")}</span>
             </button>
             <button
               onClick={() => setViewMode("magazine")}
@@ -126,7 +150,7 @@ export default function App() {
               }`}
             >
               <LayoutTemplate className="w-4 h-4" />
-              <span className="hidden sm:inline">Magazine</span>
+              <span className="hidden sm:inline">{t("nav.magazine")}</span>
             </button>
           </div>
 
@@ -153,31 +177,31 @@ export default function App() {
       </div>
 
       <div className={`absolute left-0 right-0 z-40 px-4 max-w-2xl mx-auto transition-all duration-500 ${showBrief && isImmersive ? 'top-24 opacity-100 pointer-events-auto' : 'top-24 opacity-0 pointer-events-none scale-95'}`}>
-        <DailyBriefCard items={items} narrateLang={narrateLang} />
+        <DailyBriefCard items={displayedItems} narrateLang={narrateLang} />
         {isImmersive && showBrief && (
           <button onClick={() => setShowBrief(false)} className="mt-4 w-full py-3 bg-black/50 backdrop-blur-md rounded-2xl text-white font-bold border border-white/10">
-            Close Brief
+            {t("nav.closeBrief")}
           </button>
         )}
       </div>
 
       <div className={`h-full w-full`}>
-        {items.length ? (
+        {displayedItems.length ? (
           isImmersive ? (
-            <RaadhavalhiFeedScroll items={items} narrateLang={narrateLang} onOpen={openReader} onSave={toggleSave} onOpenBrief={() => setShowBrief(!showBrief)} />
+            <RaadhavalhiFeedScroll items={displayedItems} narrateLang={narrateLang} onOpen={openReader} onSave={toggleSave} onOpenBrief={() => setShowBrief(!showBrief)} />
           ) : (
             <MagazineFeedScroll 
-              items={items} 
+              items={displayedItems} 
               onOpen={openReader} 
               onSave={toggleSave} 
-              headerContent={<DailyBriefCard items={items} narrateLang={narrateLang} />}
+              headerContent={<DailyBriefCard items={displayedItems} narrateLang={narrateLang} />}
             />
           )
         ) : (
           <div className="h-[100dvh] flex items-center justify-center text-center px-8">
             <div className="animate-pulse">
               <RefreshCw className="w-12 h-12 mx-auto mb-4 text-amber-500 animate-spin" />
-              <p className="text-xl font-bold">Loading feeds...</p>
+              <p className="text-xl font-bold">{t("nav.loading")}</p>
             </div>
           </div>
         )}
