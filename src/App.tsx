@@ -296,11 +296,11 @@ export default function App() {
               hasActiveFilters={hasActiveFilters}
             />
           ) : (
-            <MagazineFeedScroll 
-              items={displayedItems} 
-              onOpen={openReader} 
-              onSave={toggleSave} 
-              headerContent={<DailyBriefCard items={displayedItems} narrateLang={narrateLang} />}
+            <MagazineFeedScroll
+              items={displayedItems}
+              onOpen={openReader}
+              onSave={toggleSave}
+              narrateLang={narrateLang}
             />
           )
         ) : (
