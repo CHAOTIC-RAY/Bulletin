@@ -46,6 +46,7 @@ async function startServer() {
         return res.status(400).json({ error: "articles[] required" });
       }
       const apiKey = (typeof key === "string" && key.trim()) || process.env.GROQ_API_KEY || "";
+      const useAi = (req.body as any)?.useAi !== false;
       const { generateBrief } = await import("./src/lib/groqBrief");
       const dateKey =
         new Date().getFullYear() +
@@ -53,7 +54,7 @@ async function startServer() {
         String(new Date().getMonth() + 1).padStart(2, "0") +
         "-" +
         String(new Date().getDate()).padStart(2, "0");
-      const result = await generateBrief(articles, dateKey, apiKey);
+      const result = await generateBrief(articles, dateKey, apiKey, useAi);
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Access-Control-Allow-Origin", "*");
       return res.json(result);

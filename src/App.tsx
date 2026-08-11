@@ -206,7 +206,7 @@ export default function App() {
     filterOptions.searchQuery.trim().length > 0;
 
   if (screen === "setup") {
-    return <LanguageSetup onDone={onSetupDone} />;
+    return <LanguageSetup onDone={onSetupDone} items={items} />;
   }
 
   const isImmersive = viewMode === "immersive";

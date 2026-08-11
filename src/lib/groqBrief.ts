@@ -100,11 +100,11 @@ function coerce(parsed: any, fallback: GeneratedDailyBrief): GeneratedDailyBrief
   }
 }
 
-/** Build the brief locally, then try to polish it with Groq. Always returns a usable brief. */
-export async function generateBrief(articles: BriefArticleInput[], dateKey: string, apiKey?: string): Promise<BriefResult> {
+/** Build the brief locally, then try to polish it with Groq (only when useAi). Always returns a usable brief. */
+export async function generateBrief(articles: BriefArticleInput[], dateKey: string, apiKey?: string, useAi = true): Promise<BriefResult> {
   const local = buildDailyBrief(articles, dateKey);
-  if (!apiKey) {
-    return { brief: local, source: "fallback", error: "no_api_key" };
+  if (!useAi || !apiKey) {
+    return { brief: local, source: apiKey ? "fallback" : "fallback", error: useAi ? "no_api_key" : "ai_disabled" };
   }
   try {
     const res = await fetch(GROQ_URL, {

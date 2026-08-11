@@ -117,9 +117,10 @@ async function handleApi(request: Request, env: any): Promise<Response> {
     try {
       const { generateBrief } = await import("./lib/groqBrief");
       const apiKey = (typeof body?.key === "string" && body.key.trim()) || env?.GROQ_API_KEY || "";
+      const useAi = body?.useAi !== false;
       const d = new Date();
       const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const result = await generateBrief(articles, dateKey, apiKey);
+      const result = await generateBrief(articles, dateKey, apiKey, useAi);
       return Response.json(result, {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });

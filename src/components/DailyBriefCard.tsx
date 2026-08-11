@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FeedItem } from "../lib/feedStorage";
+import { getBriefSettings, filterItemsForBrief, getAvailableSourceTitles } from "../lib/feedStorage";
 import { buildDailyBrief, type BriefArticleInput, type GeneratedDailyBrief } from "../lib/generateNewsBrief";
 import { RaadhavalhiTts } from "../lib/ttsPlayer";
 import { t, getLocale } from "../lib/i18n";
@@ -19,12 +20,12 @@ function dayKey(ts: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-async function fetchGroqBrief(articles: BriefArticleInput[]): Promise<{ brief: GeneratedDailyBrief; source: string }> {
+async function fetchGroqBrief(articles: BriefArticleInput[], useAi: boolean): Promise<{ brief: GeneratedDailyBrief; source: string }> {
   try {
     const res = await fetch("/api/brief/groq", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ articles }),
+      body: JSON.stringify({ articles, useAi }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as any;
@@ -44,10 +45,29 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
 
   const articles = useMemo<BriefArticleInput[]>(() => {
     const today = Date.now();
-    return items
-      .filter((i) => dayKey(i.publishedAt) === dayKey(today))
-      .slice(0, 24)
-      .map((i) => ({ id: i.id, source: i.subscriptionTitle, title: i.title, summary: i.summary, link: i.link }));
+    const settings = getBriefSettings();
+    const scoped = filterItemsForBrief(
+      items.filter((i) => dayKey(i.publishedAt) === dayKey(today)),
+      settings
+    );
+    // Group by source, cap per-source, cap number of sources.
+    const bySource = new Map<string, FeedItem[]>();
+    for (const it of scoped) {
+      const title = it.subscriptionTitle || "General News";
+      const list = bySource.get(title) || [];
+      list.push(it);
+      bySource.set(title, list);
+    }
+    const out: BriefArticleInput[] = [];
+    let sources = 0;
+    for (const [, list] of bySource) {
+      if (sources >= settings.maxSources) break;
+      for (const it of list.slice(0, settings.maxPerSource)) {
+        out.push({ id: it.id, source: it.subscriptionTitle, title: it.title, summary: it.summary, link: it.link });
+      }
+      sources++;
+    }
+    return out.slice(0, 240);
   }, [items]);
 
   useEffect(() => {
@@ -56,7 +76,8 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
       setBrief(null);
       return;
     }
-    fetchGroqBrief(articles).then(({ brief, source }) => {
+    const useAi = getBriefSettings().useAi;
+    fetchGroqBrief(articles, useAi).then(({ brief, source }) => {
       if (alive) {
         setBrief(brief);
         setBriefSource(source);

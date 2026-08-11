@@ -342,6 +342,82 @@ export function makeFeedSubscriptionId(feedUrl: string): string {
   return `feed-${feedUrl.replace(/[^a-z0-9]+/gi, "-").slice(0, 40)}`;
 }
 
+// ---- Daily Brief specific settings ----------------------------------------
+// Lets the user scope the daily news brief to selected topics/sources and tune
+// its size + whether to use Groq AI polish (when a key is configured).
+
+export interface BriefSettings {
+  // "all" or a set of topic ids (see BRIEF_TOPICS). Empty array => all topics.
+  topics: string[];
+  // "all" or a set of source titles (FeedSubscription.title). Empty => all.
+  sources: string[];
+  maxPerSource: number; // stories kept per source (1-10)
+  maxSources: number; // max number of source sections (1-20)
+  useAi: boolean; // prefer Groq AI polish when a key is available
+}
+
+const BRIEF_SETTINGS_KEY = "raadhavalhi_brief_settings";
+
+export const BRIEF_TOPICS: { id: string; label: string; keywords: string[] }[] = [
+  { id: "world", label: "World & Politics", keywords: ["world", "global", "international", "nation", "government", "election", "diplomacy", "war", "minister", "policy", "parliament"] },
+  { id: "maldives", label: "Maldives Local", keywords: ["maldives", "malé", "atoll", "mv", "dhiig", "dhivehi", "sun.mv", "edition", "mihaaru", "psm", "president", "tourism maldiv"] },
+  { id: "business", label: "Business & Economy", keywords: ["business", "market", "economy", "stock", "trade", "finance", "dollar", "bank", "company", "gdp", "invest"] },
+  { id: "tech", label: "Technology & AI", keywords: ["tech", "ai", "software", "apple", "google", "microsoft", "cyber", "data", "internet", "app", "startup"] },
+  { id: "science", label: "Science & Climate", keywords: ["science", "space", "climate", "earth", "nasa", "health", "research", "nature", "medical", "environment"] },
+  { id: "sports", label: "Sports", keywords: ["sport", "match", "cup", "goal", "team", "league", "tournament", "football", "cricket", "world cup", "player"] },
+  { id: "culture", label: "Culture & Lifestyle", keywords: ["culture", "art", "film", "music", "book", "entertainment", "movie", "style", "life", "travel", "food"] },
+];
+
+export const DEFAULT_BRIEF_SETTINGS: BriefSettings = {
+  topics: [],
+  sources: [],
+  maxPerSource: 5,
+  maxSources: 12,
+  useAi: true,
+};
+
+export function getBriefSettings(): BriefSettings {
+  const s = readJson<Partial<BriefSettings>>(BRIEF_SETTINGS_KEY, {});
+  return { ...DEFAULT_BRIEF_SETTINGS, ...s };
+}
+export function saveBriefSettings(s: BriefSettings): void {
+  writeJson(BRIEF_SETTINGS_KEY, s);
+}
+
+/** True when the item's title/summary matches any of the chosen topic keywords. */
+export function itemMatchesBriefTopics(item: Pick<FeedItem, "title" | "summary" | "content">, topics: string[]): boolean {
+  if (!topics.length) return true;
+  const text = `${item.title} ${item.summary || ""}`.toLowerCase();
+  const chosen = BRIEF_TOPICS.filter((t) => topics.includes(t.id));
+  return chosen.some((t) =>
+    t.keywords.some((kw) => {
+      // Word-boundary match so "war" doesn't hit "benchmark".
+      const re = new RegExp(`(?:^|[^a-z])${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[^a-z]|$)`, "i");
+      return re.test(text);
+    })
+  );
+}
+
+/** Distinct source titles present in the current feed (for the sources picker). */
+export function getAvailableSourceTitles(items: FeedItem[]): string[] {
+  const set = new Set<string>();
+  for (const i of items) set.add((i.subscriptionTitle || "General News").trim());
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+/** Apply brief settings to filter + cap the feed before building the brief. */
+export function filterItemsForBrief(items: FeedItem[], settings: BriefSettings): FeedItem[] {
+  let list = items;
+  if (settings.sources.length) {
+    const wanted = new Set(settings.sources);
+    list = list.filter((i) => wanted.has((i.subscriptionTitle || "").trim()));
+  }
+  if (settings.topics.length) {
+    list = list.filter((i) => itemMatchesBriefTopics(i, settings.topics));
+  }
+  return list;
+}
+
 /** Onboarding: pick interest topics → enable matching curated feeds (no RSS pasting). */
 export function applySelectedFeedSources(topicIds: string[]): FeedSubscription[] {
   const chosen = new Set(topicIds.length ? topicIds : TOPIC_FEED_GROUPS.map((g) => g.id));
