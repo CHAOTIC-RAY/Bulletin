@@ -7,3 +7,4 @@ dist
 *.local
 .vite
 tsconfig.tsbuildinfo
+probe_all_results.json
