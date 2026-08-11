@@ -265,9 +265,30 @@ async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
     normalizedUrl = normalizedUrl.replace("psmnews.mv/", "psmnews.mv/en/");
   }
 
-  // Fast fail for paywalled/bot-walled domains like bloomberg to avoid proxy timeouts
+  // Fast fail for hard paywalls (we can't extract these anyway) to avoid timeouts
   if (/bloomberg\.com|wsj\.com|ft\.com|nytimes\.com|reuters\.com/i.test(normalizedUrl)) {
     throw new Error(`Skipping page scrape for bot-protected site: ${normalizedUrl}`);
+  }
+
+  // PRIMARY: r.jina.ai reader API. It fetches the article server-side (no
+  // browser/anti-bot wall) and returns clean Markdown + embedded images, so it
+  // works inside the Cloudflare Worker runtime where a direct fetch would be
+  // bot-blocked. This is what recovers full text for TechCrunch/Ada/Hindu/etc.
+  try {
+    const jinaRes = await fetch(`https://r.jina.ai/${normalizedUrl}`, {
+      headers: { "User-Agent": UA, Accept: "text/markdown" },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (jinaRes.ok) {
+      const md = await jinaRes.text();
+      if (md && md.length > 600) {
+        // r.jina.ai returns Markdown; convert to minimal HTML paragraphs so the
+        // existing JSON-LD/Readability extractors + sanitizer can consume it.
+        return markdownToArticleHtml(md);
+      }
+    }
+  } catch {
+    /* fall through to direct fetch */
   }
 
   const headers = {
@@ -296,6 +317,39 @@ async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
     }
   }
   throw new Error(`Failed to fetch page: ${normalizedUrl}`);
+}
+
+/** Convert r.jina.ai Markdown output to a small set of <p>/<img> tags. */
+function markdownToArticleHtml(md: string): string {
+  const lines = md.split(/\n+/);
+  const out: string[] = [];
+  for (let raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    // Images: r.jina.ai emits "![alt](url)" or "![](url)"
+    const img = line.match(/^!\[(.*?)\]\((https?:\/\/[^\s)]+)\)/i);
+    if (img) {
+      const src = img[2];
+      if (!/1x1|pixel|spacer|blank\.gif|favicon/i.test(src)) {
+        out.push(`<img src="${src.replace(/"/g, "&quot;")}" alt="${(img[1] || "").replace(/"/g, "&quot;")}" />`);
+      }
+      continue;
+    }
+    // Skip the "Title:" / "URL Source:" header lines r.jina.ai prepends
+    if (/^(Title|URL Source|Markdown|Published Time|Author):/i.test(line)) continue;
+    // Headings → <h2>; everything else → <p>
+    const h = line.match(/^#{1,3}\s+(.*)$/);
+    if (h) {
+      out.push(`<h2>${escapeText(h[1])}</h2>`);
+    } else {
+      out.push(`<p>${escapeText(line)}</p>`);
+    }
+  }
+  return out.join("\n");
+}
+
+function escapeText(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /** JSON-LD <script type="application/ld+json"> with articleBody → full text HTML. */
@@ -781,6 +835,33 @@ async function fetchViaGoogleNews(domain: string, fallbackTitle: string): Promis
     });
   }
   return { title: fallbackTitle || domain, link: `https://${domain}`, items };
+}
+
+/**
+ * CF-safe full-text recovery. When an article page can't be scraped (Cloudflare
+ * Worker egress is bot-blocked), look the headline up on Google News and return
+ * the snippet it indexes — a real multi-sentence paragraph instead of the bare
+ * RSS summary. No per-article page fetch, so it works in the Worker runtime.
+ */
+export async function recoverFullTextViaGoogleNews(title: string): Promise<string> {
+  if (!title || title.trim().length < 12) return "";
+  try {
+    const q = encodeURIComponent(title.trim());
+    const url = `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`;
+    const xml = await fetchText(url);
+    const itemRegex = /<item\b[^>]*>([\s\S]*?)<\/item>/gi;
+    let m: RegExpExecArray | null;
+    let best = "";
+    while ((m = itemRegex.exec(xml))) {
+      const b = m[1];
+      const descHtml = b.match(/<description[^>]*>([\s\S]*?)<\/description>/i)?.[1] || "";
+      const text = stripTags(decodeEntities(descHtml)).replace(/\s+/g, " ").trim();
+      if (text.length > best.length) best = text;
+    }
+    return best;
+  } catch {
+    return "";
+  }
 }
 
 export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> {
