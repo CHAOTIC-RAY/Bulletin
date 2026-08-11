@@ -2,6 +2,8 @@
 // Keeps the FeedItem model, curated Maldives + international catalogs, and
 // localStorage-backed subscriptions/items so the app runs with no backend.
 
+import { getLocale } from "./i18n";
+
 export interface FeedSubscription {
   id: string;
   title: string;
@@ -35,14 +37,30 @@ export interface FeedItem {
 const SUBSCRIPTIONS_KEY = "raadhavalhi_feed_subscriptions";
 const ITEMS_KEY = "raadhavalhi_feed_items";
 
-export const DEFAULT_FEED_SUBSCRIPTIONS: Omit<FeedSubscription, "id" | "addedAt">[] = [
-  { title: "Maldives Independent", siteUrl: "https://maldivesindependent.com", feedUrl: "https://maldivesindependent.com/api/rss" },
-  { title: "PSM News", siteUrl: "https://psmnews.mv/en/", feedUrl: "https://psmnews.mv/en/feed/" },
-  { title: "Edition", siteUrl: "https://edition.mv/", feedUrl: "https://edition.mv/feed/" },
-  { title: "Mihaaru", siteUrl: "https://mihaaru.com/", feedUrl: "https://mihaaru.com/feed/" },
-  { title: "Sun.mv", siteUrl: "https://sun.mv/", feedUrl: "https://sun.mv/feed/" },
-  { title: "Vaguthu", siteUrl: "https://vaguthu.mv/", feedUrl: "https://vaguthu.mv/feed/" },
-];
+// Sun.mv is the Dhivehi edition; see.mv is its English edition. Pick per locale.
+const SUN_MV_DV: Omit<FeedSubscription, "id" | "addedAt"> = {
+  title: "Sun.mv",
+  siteUrl: "https://sun.mv/",
+  feedUrl: "https://sun.mv/feed/",
+};
+const SEE_MV_EN: Omit<FeedSubscription, "id" | "addedAt"> = {
+  title: "See.mv",
+  siteUrl: "https://see.mv/",
+  feedUrl: "https://see.mv/feed/",
+};
+
+// Maldives local sources. Sun.mv (Dhivehi) is swapped for see.mv (English) when
+// the UI language is English, so English readers never get the Dhivehi edition.
+export function getMaldivesDefaults(locale: "en" | "dv" = "dv"): Omit<FeedSubscription, "id" | "addedAt">[] {
+  const base: Omit<FeedSubscription, "id" | "addedAt">[] = [
+    { title: "Maldives Independent", siteUrl: "https://maldivesindependent.com", feedUrl: "https://maldivesindependent.com/api/rss" },
+    { title: "PSM News", siteUrl: "https://psmnews.mv/en/", feedUrl: "https://psmnews.mv/en/feed/" },
+    { title: "Edition", siteUrl: "https://edition.mv/", feedUrl: "https://edition.mv/feed/" },
+    { title: "Mihaaru", siteUrl: "https://mihaaru.com/", feedUrl: "https://mihaaru.com/feed/" },
+    { title: "Vaguthu", siteUrl: "https://vaguthu.mv/", feedUrl: "https://vaguthu.mv/feed/" },
+  ];
+  return [...base, locale === "en" ? SEE_MV_EN : SUN_MV_DV];
+}
 
 export const INTERNATIONAL_FEED_OPTIONS: Omit<FeedSubscription, "id" | "addedAt">[] = [
   { title: "BBC World", siteUrl: "https://www.bbc.com/news/world", feedUrl: "https://feeds.bbci.co.uk/news/world/rss.xml" },
@@ -53,7 +71,7 @@ export const INTERNATIONAL_FEED_OPTIONS: Omit<FeedSubscription, "id" | "addedAt"
 ];
 
 export const TOPIC_FEED_GROUPS: { id: string; label: string; feeds: Omit<FeedSubscription, "id" | "addedAt">[] }[] = [
-  { id: "local", label: "Local & Maldives", feeds: DEFAULT_FEED_SUBSCRIPTIONS },
+  { id: "local", label: "Local & Maldives", feeds: getMaldivesDefaults(getLocale()) },
   {
     id: "world",
     label: "World News",
@@ -210,7 +228,7 @@ export function removeFeedSubscription(id: string): FeedSubscription[] {
 /** All curated sources (Maldives defaults + international options + topics), for the management UI. */
 export function getAllCuratedSources(): { group: string; sources: Omit<FeedSubscription, "id" | "addedAt">[] }[] {
   return [
-    { group: "Maldives", sources: DEFAULT_FEED_SUBSCRIPTIONS },
+    { group: "Maldives", sources: getMaldivesDefaults(getLocale()) },
     { group: "International", sources: INTERNATIONAL_FEED_OPTIONS },
     ...TOPIC_FEED_GROUPS.map((g) => ({ group: g.label, sources: g.feeds })),
   ];

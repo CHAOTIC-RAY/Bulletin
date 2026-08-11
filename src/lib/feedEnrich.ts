@@ -252,7 +252,7 @@ function parseFeedXml(xml: string, feedUrl: string): { title: string; link?: str
       const contentMatch =
         b.match(/<content[^>]*>([\s\S]*?)<\/content>/i)?.[1] || desc;
       const summary = stripTags(desc).slice(0, 600);
-      const content = contentMatch;
+      const content = decodeEntities(contentMatch);
       const imageUrl = extractRssImage(b, contentMatch);
       const updated = b.match(/<updated[^>]*>([\s\S]*?)<\/updated>/i)?.[1];
       const published = b.match(/<published[^>]*>([\s\S]*?)<\/published>/i)?.[1];
@@ -283,7 +283,10 @@ function parseFeedXml(xml: string, feedUrl: string): { title: string; link?: str
       b.match(/<description[^>]*>([\s\S]*?)<\/description>/i)?.[1] ||
       b.match(/<content:encoded[^>]*>([\s\S]*?)<\/content:encoded>/i)?.[1] ||
       "";
-    const content = b.match(/<content:encoded[^>]*>([\s\S]*?)<\/content:encoded>/i)?.[1] || description;
+    // RSS bodies are XML-escaped (e.g. &lt;p&gt;). Decode so the HTML renders
+    // instead of showing literal tags. (content:encoded takes priority when present.)
+    const contentEncoded = b.match(/<content:encoded[^>]*>([\s\S]*?)<\/content:encoded>/i)?.[1];
+    const content = contentEncoded ? decodeEntities(contentEncoded) : decodeEntities(description);
     const summary = stripTags(description).slice(0, 600);
     const imageUrl = extractRssImage(b, description);
     const author = stripTags(

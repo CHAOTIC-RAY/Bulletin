@@ -303,7 +303,7 @@ export default function RaadhavalhiFeedScroll({ items, narrateLang, onOpen, onSa
                       dangerouslySetInnerHTML={{ __html: sanitize(item.content) }}
                     />
                   ) : (
-                    <p dir={dir} className={`text-base sm:text-lg md:text-xl leading-relaxed text-neutral-200 whitespace-pre-wrap ${dir === "rtl" ? "font-thaana text-right" : ""}`}>{item.summary}</p>
+                    <div dir={dir} className={`prose-reader text-base sm:text-lg md:text-xl leading-relaxed text-neutral-200 ${dir === "rtl" ? "font-thaana text-right" : ""}`} dangerouslySetInnerHTML={{ __html: sanitize(item.summary || "") }} />
                   )}
 
                   {item.images && item.images.length > 1 && (

@@ -88,7 +88,11 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
             dangerouslySetInnerHTML={{ __html: sanitize(item.content) }}
           />
         ) : (
-          <p dir={textDirection(item.summary || "")} className={`text-lg sm:text-xl md:text-2xl leading-relaxed whitespace-pre-wrap ${textDirection(item.summary || "") === "rtl" ? "font-thaana text-right" : ""}`}>{item.summary}</p>
+          <div
+            dir={textDirection(item.summary || "")}
+            className={`prose-reader text-lg sm:text-xl md:text-2xl leading-relaxed ${textDirection(item.summary || "") === "rtl" ? "font-thaana text-right" : ""}`}
+            dangerouslySetInnerHTML={{ __html: sanitize(item.summary || "") }}
+          />
         )}
 
         {item.images && item.images.length > 1 && (
