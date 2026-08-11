@@ -73,7 +73,12 @@ const dv: Dict = {
 const TABLES: Record<LocaleCode, Dict> = { en, dv };
 
 export function getLocale(): LocaleCode {
-  return (localStorage.getItem("raadhavalhi_locale") as LocaleCode) || "en";
+  try {
+    const v = localStorage.getItem("raadhavalhi_locale");
+    return (v as LocaleCode) || "en";
+  } catch {
+    return "en";
+  }
 }
 export function setLocale(code: LocaleCode): void {
   localStorage.setItem("raadhavalhi_locale", code);

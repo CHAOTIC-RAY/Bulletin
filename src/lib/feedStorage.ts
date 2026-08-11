@@ -4,6 +4,27 @@
 
 import { getLocale } from "./i18n";
 
+// Drop non-article "noise" items (interactive quizzes, guess-the-player games,
+// polls, etc.) so the feed shows real news. e.g. BBC Sport's recurring
+// "Who am I? Guess Premier League star No 22" quiz.
+export function isJunkFeedItem(title: string, link = "", summary = ""): boolean {
+  const hay = `${title} ${summary}`.toLowerCase();
+  const junkPatterns = [
+    /^who am i\??/i,
+    /guess (the|premier league|today's|today’s) /i,
+    /\bguess (premier league|the player|the star|this player|this star)\b/i,
+    /\bwho (could|will) .* sign\b/i, // transfer "who could X sign" guess pieces
+    /\b(quiz|poll|vote|predict(ion)?|pick (your|the) )\b/i,
+    /\b(spot the|find the|guess the)\b/i,
+  ];
+  if (junkPatterns.some((re) => re.test(title))) return true;
+  // BBC Sport "who am i" quiz links look like /sport/.../who-am-i or ?...quiz
+  if (/who-?am-?i/i.test(link) || /quiz/i.test(link)) return true;
+  // Generic catch: title is purely a question about a player number with "No"
+  if (/\bguess\b/i.test(hay) && /\bno\.?\s*\d+/i.test(title)) return true;
+  return false;
+}
+
 export interface FeedSubscription {
   id: string;
   title: string;
@@ -270,7 +291,8 @@ function tagText(item: any, tag: string): string {
 export function parseFeedJson(json: any, sub: FeedSubscription): FeedItem[] {
   const entries = json?.items || json?.feed?.entries || json?.entries || [];
   if (!Array.isArray(entries)) return [];
-  return entries.map((e: any, i: number) => {
+  return entries
+    .map((e: any, i: number) => {
     const title = stripHtml(e.title || e.headline || "Untitled");
     const summary = stripHtml(e.description || e.summary || e.contentSnippet || e.content || "");
     const content = e['content:encoded'] || e.content || e.description || summary;
@@ -302,5 +324,6 @@ export function parseFeedJson(json: any, sub: FeedSubscription): FeedItem[] {
       imageUrl,
       read: false,
     } as FeedItem;
-  });
+    })
+    .filter((it) => !isJunkFeedItem(it.title, it.link, it.summary));
 }

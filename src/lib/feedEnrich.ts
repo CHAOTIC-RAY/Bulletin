@@ -14,6 +14,7 @@
 
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
+import { isJunkFeedItem } from "./feedStorage";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -442,5 +443,5 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
     })
   );
 
-  return { title: raw.title, link: raw.link, items: enriched };
+  return { title: raw.title, link: raw.link, items: enriched.filter((it) => !isJunkFeedItem(it.title, it.link, it.summary)) };
 }
