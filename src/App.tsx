@@ -123,9 +123,11 @@ export default function App() {
         <div className="max-w-5xl mx-auto flex items-center justify-between pointer-events-auto">
           
           <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xl tracking-tighter ${isImmersive ? 'bg-white text-black' : 'bg-black text-white dark:bg-white dark:text-black'}`}>
-              {uiLocale === "dv" ? "ރ" : "R"}
-            </div>
+            <img
+              src="/logo.svg"
+              alt="Raadhavalhi"
+              className={`w-9 h-9 object-contain ${isImmersive ? "drop-shadow-md" : ""}`}
+            />
             <span className={`font-extrabold tracking-tight text-xl ${isImmersive ? 'text-white drop-shadow-md' : 'text-black dark:text-white'}`}>{t("app.name")}</span>
           </div>
 

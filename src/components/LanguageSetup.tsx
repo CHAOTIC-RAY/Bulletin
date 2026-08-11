@@ -25,9 +25,7 @@ export default function LanguageSetup({ onDone }: Props) {
         {/* Top Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-500 rounded-2xl flex items-center justify-center font-black text-xl text-neutral-950 shadow-lg shadow-amber-500/20">
-              {uiLocale === "dv" ? "ރ" : "R"}
-            </div>
+            <img src="/logo.svg" alt="Raadhavalhi" className="w-10 h-10 object-contain" />
             <div>
               <h1 className="text-xl font-extrabold tracking-tight">Audio & Speech Settings</h1>
               <p className="text-xs text-neutral-400">Configure TTS engines, Piper voice packs, and languages.</p>
