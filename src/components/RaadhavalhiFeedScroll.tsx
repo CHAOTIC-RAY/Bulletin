@@ -73,15 +73,17 @@ export default function RaadhavalhiFeedScroll({
           currentStepRef.current = "pausing";
           setIsReading(true);
 
-          // Pause for a short while (~2 seconds) before reading detailed summary
+          // Brief pause (~0.8s) before reading the full article body
           pauseTimeoutRef.current = setTimeout(() => {
             if (activeIndexRef.current !== index) return;
 
             currentStepRef.current = "summary";
-            const detailedText = item.summary && item.summary.trim()
-              ? cleanTtsText(item.summary).replace(/\s+/g, " ").trim()
-              : item.content
+            // Read the COMPLETE article (content) so the full news is narrated,
+            // not just the truncated summary. Fall back to summary only if no content.
+            const detailedText = item.content && item.content.trim()
               ? cleanTtsText(item.content).replace(/\s+/g, " ").trim()
+              : item.summary && item.summary.trim()
+              ? cleanTtsText(item.summary).replace(/\s+/g, " ").trim()
               : "";
 
             if (detailedText.trim()) {

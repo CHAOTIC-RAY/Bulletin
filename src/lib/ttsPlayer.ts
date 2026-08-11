@@ -291,8 +291,22 @@ export class RaadhavalhiTts {
       : pickVoice(this.webSpeechLang);
 
     let idx = 0;
+
+    // Chrome/Edge cut SpeechSynthesis off after ~15s of continuous playback
+    // because the queue drains silently. A periodic pause/resume keeps the
+    // engine alive so long articles read to the end.
+    this.clearWebSpeechKeepAlive();
+    this.webSpeechKeepAlive = setInterval(() => {
+      if (playId !== this.currentPlayId || !this.playing) return;
+      try {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      } catch {}
+    }, 9000);
+
     const speakNext = () => {
       if (!this.playing || playId !== this.currentPlayId || idx >= sentences.length) {
+        this.clearWebSpeechKeepAlive();
         if (playId === this.currentPlayId) {
           this.playing = false;
           this.cb.onEnded?.();
@@ -321,6 +335,7 @@ export class RaadhavalhiTts {
       u.onerror = (e) => {
         if (e.error === "interrupted" || e.error === "canceled") return;
         if (playId === this.currentPlayId) {
+          this.clearWebSpeechKeepAlive();
           this.cb.onError?.(e.error || "Speech failed");
         }
       };
@@ -353,6 +368,8 @@ export class RaadhavalhiTts {
     this.playing = false;
     this.currentPlayId++;
 
+    this.clearWebSpeechKeepAlive();
+
     if (this.activeSource) {
       try {
         this.activeSource.stop();
@@ -375,6 +392,14 @@ export class RaadhavalhiTts {
   private prefetchQueue: string[] = [];
   private isPrefetching = false;
   private currentPrefetchId = 0;
+  private webSpeechKeepAlive: ReturnType<typeof setInterval> | null = null;
+
+  private clearWebSpeechKeepAlive() {
+    if (this.webSpeechKeepAlive !== null) {
+      clearInterval(this.webSpeechKeepAlive);
+      this.webSpeechKeepAlive = null;
+    }
+  }
 
   public async prefetchItems(items: any[], startIndex: number) {
     if (this.engine !== "polly" && this.engine !== "piper") {
