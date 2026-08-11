@@ -2,9 +2,6 @@
 
 /// <reference types="@cloudflare/workers-types" />
 
-import { synthesizePolly } from "./lib/pollyCore";
-
-// SPA fallback: anything that isn't an /api/* route serves index.html.
 function isApiRequest(pathname: string): boolean {
   return pathname.startsWith("/api/");
 }
@@ -13,7 +10,10 @@ async function handleApi(request: Request): Promise<Response> {
   const url = new URL(request.url);
 
   if (url.pathname === "/api/health") {
-    return Response.json({ status: "ok" });
+    const pollyCache = Boolean(
+      (globalThis as any).FIREBASE_PROJECT_ID || (globalThis as any).AWS_ACCESS_KEY_ID
+    );
+    return Response.json({ status: "ok", pollyCache });
   }
 
   if (url.pathname === "/api/tts/polly" && request.method === "POST") {
@@ -28,6 +28,8 @@ async function handleApi(request: Request): Promise<Response> {
       return Response.json({ error: "Text string is required" }, { status: 400 });
     }
     try {
+      // Lazy import so the (Workers-safe) Polly module never crashes Worker init.
+      const { synthesizePolly } = await import("./lib/pollyCore");
       const { audio, contentType } = await synthesizePolly(
         text,
         body?.voiceId || "Matthew",
@@ -60,6 +62,7 @@ async function handleApi(request: Request): Promise<Response> {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           Accept: "application/xml, text/xml, */*",
         },
+        signal: AbortSignal.timeout(12000),
       });
       if (!upstream.ok) {
         return Response.json(
@@ -72,7 +75,7 @@ async function handleApi(request: Request): Promise<Response> {
         headers: { "Content-Type": "application/xml" },
       });
     } catch (error: any) {
-      return Response.json({ error: error?.message || "Feed fetch failed" }, { status: 500 });
+      return Response.json({ error: error?.message || "Feed fetch failed" }, { status: 502 });
     }
   }
 
@@ -85,6 +88,8 @@ async function handleApi(request: Request): Promise<Response> {
     try {
       const { fetchEnrichedFeed } = await import("./lib/feedEnrich");
       const feed = await fetchEnrichedFeed(decodeURIComponent(target));
+      // Never return an empty feed as an error — surface what we got so the
+      // client can fall back gracefully instead of the whole request 503ing.
       return new Response(JSON.stringify(feed), {
         headers: {
           "Content-Type": "application/json",

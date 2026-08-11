@@ -712,10 +712,9 @@ export async function fetchTelegramFeed(urlOrChannel: string): Promise<EnrichedF
       let content = it.content || "";
       let imageUrl = it.imageUrl;
 
-      // Expand short posts or post excerpts with AI or detailed report
+      // Expand short posts or post excerpts into a fuller article-style body.
       if (!content || stripTags(content).length < 250) {
-        const aiArticle = index < 5 ? await generateFullArticleWithGemini(it.title, it.summary || "", channelTitle) : undefined;
-        content = aiArticle || expandSummaryToFullArticle(it.title, it.summary || "", channelTitle);
+        content = expandSummaryToFullArticle(it.title, it.summary || "", channelTitle);
       }
 
       return {
@@ -780,74 +779,94 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
     cleanItems.slice(0, 15),
     3,
     async (it, index) => {
-      const isGuardian = it.link.includes("theguardian.com");
-      const isPsm = it.link.includes("psmnews.mv");
-      const isDw = it.link.includes("dw.com");
-      let imageUrl = it.imageUrl;
-      let content = it.content;
+      try {
+        const isGuardian = it.link.includes("theguardian.com");
+        const isPsm = it.link.includes("psmnews.mv");
+        const isDw = it.link.includes("dw.com");
+        let imageUrl = it.imageUrl;
+        let content = it.content;
 
-      const isLowResImg =
-        !imageUrl ||
-        imageUrl.includes("width=140") ||
-        imageUrl.includes("width=100") ||
-        imageUrl.includes("width=150") ||
-        imageUrl.includes("width=200") ||
-        imageUrl.includes("width=460") ||
-        (imageUrl.includes("i.guim.co.uk") && !imageUrl.includes("width=1200") && !imageUrl.includes("width=700"));
+        const isLowResImg =
+          !imageUrl ||
+          imageUrl.includes("width=140") ||
+          imageUrl.includes("width=100") ||
+          imageUrl.includes("width=150") ||
+          imageUrl.includes("width=200") ||
+          imageUrl.includes("width=460") ||
+          (imageUrl.includes("i.guim.co.uk") && !imageUrl.includes("width=1200") && !imageUrl.includes("width=700"));
 
-      const isShortContent =
-        !content ||
-        stripTags(content).length < 600 ||
-        /continue reading|full report is here|this blog is now closed|read the full|read more/i.test(content) ||
-        isBloomberg;
+        const isShortContent =
+          !content ||
+          stripTags(content).length < 600 ||
+          /continue reading|full report is here|this blog is now closed|read the full|read more/i.test(content) ||
+          isBloomberg;
 
-      let needsImage = isLowResImg || isGuardian || isPsm || isBloomberg || isDw;
-      let needsContent = isShortContent || isGuardian || isPsm || isBloomberg || isDw;
+        let needsImage = isLowResImg || isGuardian || isPsm || isBloomberg || isDw;
+        let needsContent = isShortContent || isGuardian || isPsm || isBloomberg || isDw;
 
-      let images: string[] = imageUrl ? [imageUrl] : [];
-      if ((needsImage || needsContent) && !isBloomberg) {
-        const scraped = await scrapeArticle(it.link);
-        if (scraped.imageUrl) imageUrl = scraped.imageUrl;
-        if (scraped.content) content = scraped.content;
-        if (scraped.images.length) images = scraped.images;
+        let images: string[] = imageUrl ? [imageUrl] : [];
+        if ((needsImage || needsContent) && !isBloomberg) {
+          try {
+            const scraped = await scrapeArticle(it.link);
+            if (scraped.imageUrl) imageUrl = scraped.imageUrl;
+            if (scraped.content) content = scraped.content;
+            if (scraped.images.length) images = scraped.images;
+          } catch {
+            /* scrape failed — keep RSS-provided data */
+          }
+        }
+
+        // Re-evaluate content completeness
+        needsContent = !content || stripTags(content).length < 500 || isBloomberg;
+        if (needsContent) {
+          content = expandSummaryToFullArticle(it.title, it.summary || "", raw.title || host);
+        }
+
+        // Ensure main image URL is synchronized with extracted images if missing
+        if (!imageUrl && images.length > 0) {
+          imageUrl = images[0];
+        }
+
+        if (content) {
+          content = cleanArticleHtml(content);
+        }
+        let summary = it.summary;
+        if ((!summary || summary.trim().length < 10) && content) {
+          summary = stripTags(content).slice(0, 400);
+        }
+        const cleanMainImg = sanitizeUnwatermarkedImage(imageUrl);
+        const cleanImages = images
+          .map((img) => sanitizeUnwatermarkedImage(img))
+          .filter((img): img is string => Boolean(img));
+
+        const finalImages = cleanImages.length > 0 ? cleanImages : cleanMainImg ? [cleanMainImg] : [];
+
+        return {
+          id: canonicalId(it.link),
+          title: it.title,
+          link: it.link,
+          author: it.author,
+          summary,
+          content,
+          imageUrl: cleanMainImg,
+          images: finalImages,
+          publishedAt: it.publishedAt,
+        };
+      } catch {
+        // Per-item failure must never 503 the whole feed. Return the RSS item
+        // as-is (with whatever summary/image it had) so the feed still renders.
+        return {
+          id: canonicalId(it.link),
+          title: it.title,
+          link: it.link,
+          author: it.author,
+          summary: it.summary,
+          content: it.content,
+          imageUrl: it.imageUrl,
+          images: it.imageUrl ? [it.imageUrl] : [],
+          publishedAt: it.publishedAt,
+        };
       }
-
-      // Re-evaluate content completeness
-      needsContent = !content || stripTags(content).length < 500 || isBloomberg;
-      if (needsContent) {
-        content = expandSummaryToFullArticle(it.title, it.summary || "", raw.title || host);
-      }
-
-      // Ensure main image URL is synchronized with extracted images if missing
-      if (!imageUrl && images.length > 0) {
-        imageUrl = images[0];
-      }
-
-      if (content) {
-        content = cleanArticleHtml(content);
-      }
-      let summary = it.summary;
-      if ((!summary || summary.trim().length < 10) && content) {
-        summary = stripTags(content).slice(0, 400);
-      }
-      const cleanMainImg = sanitizeUnwatermarkedImage(imageUrl);
-      const cleanImages = images
-        .map((img) => sanitizeUnwatermarkedImage(img))
-        .filter((img): img is string => Boolean(img));
-
-      const finalImages = cleanImages.length > 0 ? cleanImages : (cleanMainImg ? [cleanMainImg] : []);
-
-      return {
-        id: canonicalId(it.link),
-        title: it.title,
-        link: it.link,
-        author: it.author,
-        summary,
-        content,
-        imageUrl: cleanMainImg,
-        images: finalImages,
-        publishedAt: it.publishedAt,
-      };
     }
   );
 

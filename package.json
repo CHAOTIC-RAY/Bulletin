@@ -13,7 +13,6 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
-    "@aws-sdk/client-polly": "^3.700.0",
     "@diffusionstudio/vits-web": "^1.0.3",
     "@google/genai": "^2.16.0",
     "@mozilla/readability": "^0.6.0",
