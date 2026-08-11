@@ -6,6 +6,14 @@ import AutoImageReel from "./AutoImageReel";
 import { RaadhavalhiTts } from "../lib/ttsPlayer";
 import { Volume2, VolumeX } from "lucide-react";
 
+// Strip scripts/styles and inline event handlers before rendering article HTML.
+function sanitize(html: string): string {
+  return html
+    .replace(/<\s*(script|style|iframe|object|embed)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
+    .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/javascript:/gi, "");
+}
+
 interface Props {
   items: FeedItem[];
   narrateLang: string;
@@ -282,7 +290,32 @@ export default function RaadhavalhiFeedScroll({ items, narrateLang, onOpen, onSa
 
               {isExpanded && (
                 <div className="mt-3 border-t border-white/10 pt-3 max-h-[45vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                  <p className="text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap">{item.summary}</p>
+                  {item.content ? (
+                    <div
+                      dir={dir}
+                      className={`prose-reader text-sm leading-relaxed text-neutral-200 ${dir === "rtl" ? "font-thaana text-right" : ""}`}
+                      dangerouslySetInnerHTML={{ __html: sanitize(item.content) }}
+                    />
+                  ) : (
+                    <p className="text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap">{item.summary}</p>
+                  )}
+
+                  {item.images && item.images.length > 1 && (
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {item.images.map((img, i) =>
+                        i === 0 ? null : (
+                          <img
+                            key={i}
+                            src={img}
+                            alt=""
+                            referrerPolicy="no-referrer"
+                            loading="lazy"
+                            className="w-full h-32 object-cover rounded-lg"
+                          />
+                        )
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
