@@ -316,8 +316,27 @@ export class RaadhavalhiTts {
       const sentence = sentences[idx];
       const u = new SpeechSynthesisUtterance(sentence);
       u.lang = this.webSpeechLang || "en-US";
-      u.rate = this.rate;
-      u.pitch = this.pitch;
+
+      // Expressive newsreader cadence: vary pitch/rate slightly per sentence so
+      // the voice doesn't sound robotic, and add emphasis on emotional cues.
+      const isExcited = /[!？]|wow|breaking|shock|surge|win|victory|celebrat/i.test(sentence);
+      const isQuestion = /\?$/.test(sentence.trim());
+      const basePitch = this.pitch;
+      const baseRate = this.rate || 1;
+      // gentle alternation for natural rhythm (deterministic, not random)
+      const wobble = (idx % 2 === 0 ? 1 : -1) * 0.06;
+      let pitch = Math.max(0, Math.min(2, basePitch + wobble));
+      let rate = baseRate;
+      if (isExcited) {
+        pitch = Math.min(2, basePitch + 0.18);
+        rate = Math.min(2, baseRate + 0.08);
+      } else if (isQuestion) {
+        pitch = Math.min(2, basePitch + 0.1);
+      } else if (sentence.length > 160) {
+        rate = Math.max(0.6, baseRate - 0.06); // slow down for long reads
+      }
+      u.rate = rate;
+      u.pitch = pitch;
       u.volume = Math.min(1, Math.max(0, this.volume));
 
       if (chosen) u.voice = chosen;

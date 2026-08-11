@@ -52,6 +52,8 @@ export default function RaadhavalhiFeedScroll({
 
   const startReadingSequence = (index: number) => {
     if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    // Instantly kill any in-flight speech so scrolling switches articles with no overlap.
+    try { window.speechSynthesis?.cancel(); } catch {}
     tts.stop();
 
     if (userMuted || !items[index]) {
