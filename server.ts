@@ -82,7 +82,10 @@ async function startServer() {
 
   // Health check
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok" });
+    res.json({
+      status: "ok",
+      pollyCache: Boolean(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_API_KEY),
+    });
   });
 
   // Vite development middleware or static production serving

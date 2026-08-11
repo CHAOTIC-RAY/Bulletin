@@ -1,0 +1,22 @@
+# Firebase TTS shared-cache config (example — copy to `.dev.vars` for local `wrangler dev`,
+# or `wrangler secret put` each value for production. NEVER commit the real `.dev.vars`.)
+#
+# 1. Create a Firebase project (free Spark plan): https://console.firebase.google.com
+# 2. Add a Web App — copy its web API key + Project ID below.
+# 3. Firestore: create a database (us-central1 or nearest), start in test mode, then
+#    paste the Security Rules from README ("Firebase TTS cache setup").
+# 4. (Optional) Add a 7-day TTL on the `createdAt` field for a free native prune.
+#
+# These are read by src/lib/pollyCache.ts. If unset, caching is disabled and the app
+# falls straight through to live AWS Polly.
+
+FIREBASE_API_KEY=your-firebase-web-api-key
+FIREBASE_PROJECT_ID=your-firebase-project-id
+
+# AWS Polly (required for actual synthesis; cache only stores the results)
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=us-east-1
+
+# Optional: lower the free-tier cap (default 50000 docs ≈ 500 MB)
+# POLLY_CACHE_MAX_DOCS=50000

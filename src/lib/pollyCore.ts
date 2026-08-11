@@ -13,10 +13,12 @@ import {
   SynthesizeSpeechCommand,
   type VoiceId,
 } from "@aws-sdk/client-polly";
+import { pollyCacheKey, getCachedPolly, putCachedPolly } from "./pollyCache";
 
 export interface PollyResult {
   audio: Uint8Array;
   contentType: string;
+  cached?: boolean;
 }
 
 export async function synthesizePolly(
@@ -25,6 +27,21 @@ export async function synthesizePolly(
   engine: "standard" | "neural" = "neural",
   rate = 1
 ): Promise<PollyResult> {
+  const normEngine = engine === "standard" ? "standard" : "neural";
+
+  // 1) Shared cache check (Firebase). On a hit, return the cached MP3 — no AWS
+  //    token spent, instant for every other device/user.
+  try {
+    const key = await pollyCacheKey(text, voiceId, normEngine, rate);
+    const cached = await getCachedPolly(key);
+    if (cached) {
+      return { audio: cached.audio, contentType: cached.contentType, cached: true };
+    }
+  } catch {
+    // cache is best-effort; fall through to live synthesis on any error
+  }
+
+  // 2) Live synthesis (only on a cache miss).
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "us-east-1";
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
@@ -47,7 +64,7 @@ export async function synthesizePolly(
   const command = new SynthesizeSpeechCommand({
     OutputFormat: "mp3",
     VoiceId: voiceId as VoiceId,
-    Engine: engine,
+    Engine: normEngine,
     TextType: "ssml",
     Text: ssml,
   });
@@ -58,6 +75,15 @@ export async function synthesizePolly(
   }
 
   const bytes = await streamToBytes(response.AudioStream);
+
+  // 3) Persist to the shared cache so the next device reuses it.
+  try {
+    const key = await pollyCacheKey(text, voiceId, normEngine, rate);
+    await putCachedPolly(key, bytes, { text, voiceId, engine: normEngine, rate });
+  } catch {
+    // caching failure must never break playback
+  }
+
   return { audio: bytes, contentType: "audio/mpeg" };
 }
 
