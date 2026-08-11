@@ -143,11 +143,32 @@ export class RaadhavalhiTts {
   }
 
   // --- 1.5 Polly TTS Playback (AWS cloud, MP3 via backend proxy) ---
+  // Sentences are grouped into chunks and synthesized as ONE MP3 per chunk
+  // (continuous audio, no per-sentence gap). The next chunk is synthesized in
+  // parallel while the current one plays, so playback is gap-free.
   private async playPolly(sentences: string[], playId: number) {
     try {
-      let idx = 0;
-      const playNextSentence = async () => {
-        if (!this.playing || playId !== this.currentPlayId || idx >= sentences.length) {
+      // Group sentences into chunks (~4 sentences / <2800 chars) to cut the
+      // number of network round-trips and keep audio continuous within a chunk.
+      const CHUNK_SENTENCES = 4;
+      const MAX_CHARS = 2800;
+      const chunks: string[] = [];
+      let buf: string[] = [];
+      let bufLen = 0;
+      for (const s of sentences) {
+        if (buf.length && (buf.length >= CHUNK_SENTENCES || bufLen + s.length > MAX_CHARS)) {
+          chunks.push(buf.join(" "));
+          buf = [];
+          bufLen = 0;
+        }
+        buf.push(s);
+        bufLen += s.length;
+      }
+      if (buf.length) chunks.push(buf.join(" "));
+
+      let ci = 0;
+      const playNextChunk = async () => {
+        if (!this.playing || playId !== this.currentPlayId || ci >= chunks.length) {
           if (playId === this.currentPlayId) {
             this.playing = false;
             this.cb.onEnded?.();
@@ -155,17 +176,17 @@ export class RaadhavalhiTts {
           return;
         }
 
-        const sentence = sentences[idx];
-        this.cb.onSubtitle?.(sentence);
+        const text = chunks[ci];
+        this.cb.onSubtitle?.(text);
+
+        // Warm the cache for upcoming chunks so they're ready the instant the
+        // current one ends (overlap synthesis with playback → no gap).
+        for (let k = ci + 1; k < Math.min(ci + 3, chunks.length); k++) {
+          synthesizePolly(chunks[k], this.pollyVoiceId, this.pollyEngine, this.rate).catch(() => {});
+        }
 
         try {
-          const blob = await synthesizePolly(
-            sentence,
-            this.pollyVoiceId,
-            this.pollyEngine,
-            this.rate
-          );
-
+          const blob = await synthesizePolly(text, this.pollyVoiceId, this.pollyEngine, this.rate);
           if (!this.playing || playId !== this.currentPlayId) return;
 
           const url = URL.createObjectURL(blob);
@@ -176,8 +197,8 @@ export class RaadhavalhiTts {
           audio.onended = () => {
             URL.revokeObjectURL(url);
             if (!this.playing || playId !== this.currentPlayId) return;
-            idx++;
-            playNextSentence();
+            ci++;
+            playNextChunk();
           };
 
           audio.onerror = () => {
@@ -194,7 +215,7 @@ export class RaadhavalhiTts {
         }
       };
 
-      await playNextSentence();
+      await playNextChunk();
     } catch (err: any) {
       console.warn("Polly TTS failed:", err);
       this.cb.onError?.(err?.message || "Polly TTS failed");
@@ -290,6 +311,7 @@ export class RaadhavalhiTts {
       ? voices.find((v) => v.name === this.webSpeechVoice || v.voiceURI === this.webSpeechVoice)
       : pickVoice(this.webSpeechLang);
 
+    const QUEUE_AHEAD = 3; // keep this many utterances queued so they play back-to-back
     let idx = 0;
 
     // Chrome/Edge cut SpeechSynthesis off after ~15s of continuous playback
@@ -304,16 +326,7 @@ export class RaadhavalhiTts {
       } catch {}
     }, 9000);
 
-    const speakNext = () => {
-      if (!this.playing || playId !== this.currentPlayId || idx >= sentences.length) {
-        this.clearWebSpeechKeepAlive();
-        if (playId === this.currentPlayId) {
-          this.playing = false;
-          this.cb.onEnded?.();
-        }
-        return;
-      }
-      const sentence = sentences[idx];
+    const buildUtterance = (sentence: string, i: number): SpeechSynthesisUtterance => {
       const u = new SpeechSynthesisUtterance(sentence);
       u.lang = this.webSpeechLang || "en-US";
 
@@ -323,8 +336,7 @@ export class RaadhavalhiTts {
       const isQuestion = /\?$/.test(sentence.trim());
       const basePitch = this.pitch;
       const baseRate = this.rate || 1;
-      // gentle alternation for natural rhythm (deterministic, not random)
-      const wobble = (idx % 2 === 0 ? 1 : -1) * 0.06;
+      const wobble = (i % 2 === 0 ? 1 : -1) * 0.06;
       let pitch = Math.max(0, Math.min(2, basePitch + wobble));
       let rate = baseRate;
       if (isExcited) {
@@ -348,25 +360,48 @@ export class RaadhavalhiTts {
       };
       u.onend = () => {
         if (!this.playing || playId !== this.currentPlayId) return;
+        this.queuedCount = Math.max(0, this.queuedCount - 1);
         idx++;
-        speakNext();
+        // Queue the next utterances immediately so playback is gap-free.
+        queueAhead();
       };
       u.onerror = (e) => {
         if (e.error === "interrupted" || e.error === "canceled") return;
         if (playId === this.currentPlayId) {
+          this.queuedCount = Math.max(0, this.queuedCount - 1);
           this.clearWebSpeechKeepAlive();
           this.cb.onError?.(e.error || "Speech failed");
         }
       };
-
-      this.utter = u;
-      if (playId === this.currentPlayId) {
-        this.cb.onSubtitle?.(sentence);
-      }
-      window.speechSynthesis.speak(u);
+      return u;
     };
 
-    speakNext();
+    const queueAhead = () => {
+      if (!this.playing || playId !== this.currentPlayId) return;
+      // Keep up to QUEUE_AHEAD utterances buffered so they play back-to-back
+      // with no gap between sentences.
+      while (this.queuedCount < QUEUE_AHEAD && idx < sentences.length) {
+        const sentence = sentences[idx];
+        this.utter = buildUtterance(sentence, idx);
+        this.queuedCount++;
+        if (playId === this.currentPlayId) {
+          this.cb.onSubtitle?.(sentence);
+        }
+        window.speechSynthesis.speak(this.utter);
+        idx++;
+      }
+      // When the queue is drained and nothing is left, we're done.
+      if (this.queuedCount === 0 && idx >= sentences.length) {
+        this.clearWebSpeechKeepAlive();
+        if (playId === this.currentPlayId) {
+          this.playing = false;
+          this.cb.onEnded?.();
+        }
+      }
+    };
+
+    // Kick off the first utterances.
+    queueAhead();
   }
 
   public pause() {
@@ -386,6 +421,7 @@ export class RaadhavalhiTts {
   public stop() {
     this.playing = false;
     this.currentPlayId++;
+    this.queuedCount = 0;
 
     this.clearWebSpeechKeepAlive();
 
@@ -412,6 +448,7 @@ export class RaadhavalhiTts {
   private isPrefetching = false;
   private currentPrefetchId = 0;
   private webSpeechKeepAlive: ReturnType<typeof setInterval> | null = null;
+  private queuedCount = 0;
 
   private clearWebSpeechKeepAlive() {
     if (this.webSpeechKeepAlive !== null) {
