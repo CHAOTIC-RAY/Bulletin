@@ -1,4 +1,4 @@
-// Feed storage for Raadhavalhi — localStorage-backed subscriptions/items.
+// Feed storage for Bulletin — localStorage-backed subscriptions/items.
 // Keeps the FeedItem model, curated Maldives + international catalogs, and
 // localStorage-backed subscriptions/items so the app runs with no backend.
 
@@ -48,15 +48,15 @@ export interface FeedItem {
   content?: string;
   publishedAt: number;
   imageUrl?: string;
-  images?: string[]; // <-- Raadhavalhi: collected gallery images for AutoImageReel
+  images?: string[]; // <-- Bulletin: collected gallery images for AutoImageReel
   category?: string;
   read: boolean;
   saved?: boolean;
   savedAt?: number;
 }
 
-const SUBSCRIPTIONS_KEY = "raadhavalhi_feed_subscriptions";
-const ITEMS_KEY = "raadhavalhi_feed_items";
+const SUBSCRIPTIONS_KEY = "bulletin_feed_subscriptions";
+const ITEMS_KEY = "bulletin_feed_items";
 
 // Sun.mv is the Dhivehi edition; see.mv is its English edition. Pick per locale.
 const SUN_MV_DV: Omit<FeedSubscription, "id" | "addedAt"> = {
@@ -356,7 +356,7 @@ export interface BriefSettings {
   useAi: boolean; // prefer Groq AI polish when a key is available
 }
 
-const BRIEF_SETTINGS_KEY = "raadhavalhi_brief_settings";
+const BRIEF_SETTINGS_KEY = "bulletin_brief_settings";
 
 export const BRIEF_TOPICS: { id: string; label: string; keywords: string[] }[] = [
   { id: "world", label: "World & Politics", keywords: ["world", "global", "international", "nation", "government", "election", "diplomacy", "war", "minister", "policy", "parliament"] },

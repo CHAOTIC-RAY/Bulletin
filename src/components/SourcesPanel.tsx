@@ -88,7 +88,7 @@ export default function SourcesPanel({ onChanged }: Props) {
     }
     setSubs(currentSubs);
     // Save updated subs
-    localStorage.setItem("raadhavalhi_feed_subscriptions", JSON.stringify(currentSubs));
+    localStorage.setItem("bulletin_feed_subscriptions", JSON.stringify(currentSubs));
     onChanged();
   };
 

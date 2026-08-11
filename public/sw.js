@@ -1,11 +1,11 @@
-// Raadhavalhi service worker — app-shell cache + silent auto-update.
+// Bulletin service worker — app-shell cache + silent auto-update.
 // Strategy:
 //  - Navigation requests: serve cached index.html immediately (fast), revalidate in background.
 //  - Static assets (hashed by Vite): cache-first, revalidate.
 //  - On a new service worker installing, skipWaiting + notify clients; the app
 //    listens for the message and reloads automatically once the new SW activates.
 
-const CACHE = "raadhavalhi-v1";
+const CACHE = "bulletin-v1";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/logo.svg"];
 
 self.addEventListener("install", (event) => {

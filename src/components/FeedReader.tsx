@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { FeedItem } from "../lib/feedStorage";
 import { textDirection } from "../lib/textDirection";
-import { RaadhavalhiTts } from "../lib/ttsPlayer";
+import { BulletinTts } from "../lib/ttsPlayer";
 import { t, getLocale } from "../lib/i18n";
 import { createPortal } from "react-dom";
 import { cleanArticleHtml, cleanTtsText } from "../lib/feedSanitize";
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function FeedReader({ item, narrateLang, onClose }: Props) {
-  const ttsRef = useRef<RaadhavalhiTts | null>(null);
+  const ttsRef = useRef<BulletinTts | null>(null);
   const [playing, setPlaying] = useState(false);
   const [subtitle, setSubtitle] = useState("");
 
@@ -29,7 +29,7 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
 
   const ensureTts = () => {
     if (!ttsRef.current) {
-      ttsRef.current = new RaadhavalhiTts({
+      ttsRef.current = new BulletinTts({
         onSubtitle: setSubtitle,
         onEnded: () => setPlaying(false),
         onError: () => setPlaying(false),

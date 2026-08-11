@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FeedItem } from "../lib/feedStorage";
 import { getBriefSettings, filterItemsForBrief, getAvailableSourceTitles } from "../lib/feedStorage";
 import { buildDailyBrief, type BriefArticleInput, type GeneratedDailyBrief } from "../lib/generateNewsBrief";
-import { RaadhavalhiTts } from "../lib/ttsPlayer";
+import { BulletinTts } from "../lib/ttsPlayer";
 import { t, getLocale } from "../lib/i18n";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Volume2, VolumeX, Sparkles } from "lucide-react";
@@ -88,7 +88,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
     };
   }, [articles]);
 
-  const ttsRef = useRef<RaadhavalhiTts | null>(null);
+  const ttsRef = useRef<BulletinTts | null>(null);
   const [playing, setPlaying] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
   const [subtitle, setSubtitle] = useState("");
@@ -105,7 +105,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
 
   const ensureTts = () => {
     if (!ttsRef.current) {
-      ttsRef.current = new RaadhavalhiTts({
+      ttsRef.current = new BulletinTts({
         onSubtitle: setSubtitle,
         onEnded: () => setPlaying(false),
         onError: () => setPlaying(false),

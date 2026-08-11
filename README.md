@@ -1,16 +1,19 @@
-# Raadhavalhi — News, reimagined
+# Bulletin — News, reimagined
 
-A standalone news app forked from the Kora "News" tab. Built for a generation that
-scrolls and listens instead of reading headline grids.
+An always-listening news app for a generation that scrolls and listens instead of
+reading headline grids. Pick your sources and topics, and the app becomes your
+personal daily paper — read it, scroll it, or have it narrated to you.
+
+![Bulletin in use](docs/demo.gif)
 
 ## What's inside
-- **TikTok-style vertical news scroll** (`RaadhavalhiFeedScroll`) — one story per screen, snap scroll.
+- **TikTok-style vertical news scroll** (`BulletinFeedScroll`) — one story per screen, snap scroll.
 - **Multi-image auto-switching** (`AutoImageReel`) — when an article has several images, they crossfade automatically (Dhivehi-friendly, respects `prefers-reduced-motion`).
 - **Listen (TTS)** — three engines, switchable in Settings:
   - **Browser WebSpeech** (default) — free built-in system voices. Zero download, zero API key, works on every device. TTSReader's "free" voices ARE these.
   - **AWS Polly** — studio-quality neural voices (Matthew, Joanna, Amy, Stephen…) via the official Polly API. Free tier: 1M neural characters/month. Needs AWS credentials (see "AWS Polly setup" below).
   - **Piper** — fully local, in-browser neural voices (`@diffusionstudio/vits-web`, WASM + OPFS). No network needed, works offline, but downloads a ~114 MB model (this is what was crashing low-end pages, so it is no longer the default).
-- **Daily Brief** — on-device, no-AI brief generator (`generateNewsBrief`) groups today's stories by source.
+- **Daily Brief / Daily Paper** — on-device brief generator (`generateNewsBrief`) groups today's stories by source into a personalized newspaper. An optional Groq pass (`GROQ_API_KEY`) polishes the writing when a key is set; otherwise it falls back to the on-device generator. Fully configurable in Settings (topics, sources, size, AI toggle).
 - **Multilingual** — `en` + `dv` (Dhivehi) UI strings; independent TTS narration language; full RTL layout for Thaana (`textDirection`).
 - **Easy setup** — pick interests → sources auto-onboard. No RSS pasting.
 
@@ -52,7 +55,7 @@ Polly needs AWS credentials. They stay server-side — never shipped to the brow
 ### 2. Create an IAM user with Polly access (console walkthrough)
 1. Sign in to the **AWS Console** → open **IAM** (search "IAM").
 2. Left menu → **Users** → **Create user**.
-3. Name it e.g. `raadhavalhi-polly`. Leave "Provide user access to the AWS Management Console" **unchecked**. Click **Next**.
+3. Name it e.g. `bulletin-polly`. Leave "Provide user access to the AWS Management Console" **unchecked**. Click **Next**.
 4. **Set permissions** → choose **Attach policies directly**.
 5. Search and tick **`AmazonPollyReadOnlyAccess`**. (Read-only is enough — Polly synthesis is a read action.) Click **Next** → **Create user**.
    - Free-tier tip: `AmazonPollyReadOnlyAccess` is sufficient and safest. Don't grant `AdministratorAccess`.
@@ -144,13 +147,6 @@ the 50k reads/day free allowance; any backlog converges over subsequent weeks.
 - Tune the cap: `POLLY_CACHE_MAX_DOCS=40000 npx wrangler secret put POLLY_CACHE_MAX_DOCS`.
 
 The `/api/health` endpoint reports `"pollyCache": true/false` so you can confirm it's live.
-
-## Reusing Kora's real code
-This app is built on Kora's production news subsystem. The verbatim Kora source is in
-`kora-news-tab-code.md` and the product spec is in `PRD.md`.
-
-- `kora-news-tab-code.md` — all Kora news-tab files (feedStorage, generateNewsBrief, tts*, textDirection, FeedTikTokScroll, FeedArticleReader…).
-- `PRD.md` — full PRD: problem framing, architecture, new-code delta, risks.
 
 ## Notes
 - Standalone mode fetches RSS via a public RSS→JSON proxy in `feedClient.ts`, with

@@ -1,4 +1,4 @@
-// Unified Raadhavalhi TTS Engine
+// Unified Bulletin TTS Engine
 // Free, keyless browser WebSpeech (SpeechSynthesis) is the default — zero
 // download, zero API key, no 114 MB WASM model to crash low-end pages.
 // Piper TTS (in-browser WASM neural voices) remains available as an optional
@@ -25,7 +25,7 @@ function splitSentences(text: string): string[] {
   return prepareTextForNaturalSpeech(text);
 }
 
-export class RaadhavalhiTts {
+export class BulletinTts {
   private cb: TtsCallbacks = {};
   private engine: TtsEngineType = "webspeech";
   private piperPackId = "ryan-high";
@@ -51,28 +51,28 @@ export class RaadhavalhiTts {
 
   public loadSettings() {
     if (typeof localStorage !== "undefined") {
-      const savedEngine = localStorage.getItem("raadhavalhi_tts_engine") as TtsEngineType;
+      const savedEngine = localStorage.getItem("bulletin_tts_engine") as TtsEngineType;
       if (savedEngine === "webspeech" || savedEngine === "piper" || savedEngine === "polly") this.engine = savedEngine;
 
-      const savedPiper = localStorage.getItem("raadhavalhi_piper_voice");
+      const savedPiper = localStorage.getItem("bulletin_piper_voice");
       if (savedPiper) this.piperPackId = savedPiper;
 
-      const savedPolly = localStorage.getItem("raadhavalhi_polly_voice");
+      const savedPolly = localStorage.getItem("bulletin_polly_voice");
       if (savedPolly) this.pollyVoiceId = savedPolly;
 
-      const savedPollyEngine = localStorage.getItem("raadhavalhi_polly_engine");
+      const savedPollyEngine = localStorage.getItem("bulletin_polly_engine");
       if (savedPollyEngine === "standard" || savedPollyEngine === "neural") this.pollyEngine = savedPollyEngine;
 
-      const savedVoice = localStorage.getItem("raadhavalhi_webspeech_voice");
+      const savedVoice = localStorage.getItem("bulletin_webspeech_voice");
       if (savedVoice) this.webSpeechVoice = savedVoice;
 
-      const savedRate = localStorage.getItem("raadhavalhi_tts_rate");
+      const savedRate = localStorage.getItem("bulletin_tts_rate");
       if (savedRate) this.rate = parseFloat(savedRate);
 
-      const savedPitch = localStorage.getItem("raadhavalhi_tts_pitch");
+      const savedPitch = localStorage.getItem("bulletin_tts_pitch");
       if (savedPitch) this.pitch = parseFloat(savedPitch);
 
-      const savedVol = localStorage.getItem("raadhavalhi_tts_volume");
+      const savedVol = localStorage.getItem("bulletin_tts_volume");
       if (savedVol) this.volume = Math.min(1, Math.max(0, parseFloat(savedVol)));
     }
   }
@@ -91,8 +91,8 @@ export class RaadhavalhiTts {
     if (webSpeechLang) this.webSpeechLang = webSpeechLang;
 
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem("raadhavalhi_tts_engine", engine);
-      if (piperPackId) localStorage.setItem("raadhavalhi_piper_voice", piperPackId);
+      localStorage.setItem("bulletin_tts_engine", engine);
+      if (piperPackId) localStorage.setItem("bulletin_piper_voice", piperPackId);
     }
   }
 
@@ -100,8 +100,8 @@ export class RaadhavalhiTts {
     this.pollyVoiceId = voiceId;
     this.pollyEngine = engine;
     if (typeof localStorage !== "undefined") {
-      localStorage.setItem("raadhavalhi_polly_voice", voiceId);
-      localStorage.setItem("raadhavalhi_polly_engine", engine);
+      localStorage.setItem("bulletin_polly_voice", voiceId);
+      localStorage.setItem("bulletin_polly_engine", engine);
     }
   }
 

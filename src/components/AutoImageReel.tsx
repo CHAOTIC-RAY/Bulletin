@@ -13,7 +13,7 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * Raadhavalhi feature: when a news item has MULTIPLE images, auto-switch between them
+ * Bulletin feature: when a news item has MULTIPLE images, auto-switch between them
  * with a crossfade (TikTok/Reels-style gallery). Falls back to a static first
  * image when prefers-reduced-motion is set, or when paused/hidden.
  */

@@ -3,7 +3,7 @@ import type { FeedItem } from "../lib/feedStorage";
 import { textDirection } from "../lib/textDirection";
 import { t, getLocale } from "../lib/i18n";
 import AutoImageReel from "./AutoImageReel";
-import { RaadhavalhiTts } from "../lib/ttsPlayer";
+import { BulletinTts } from "../lib/ttsPlayer";
 import { Volume2, VolumeX, SlidersHorizontal } from "lucide-react";
 import { cleanArticleHtml as sanitize, cleanTtsText, extractImagesFromHtml } from "../lib/feedSanitize";
 
@@ -18,10 +18,10 @@ interface Props {
 }
 
 /**
- * Raadhavalhi home — TikTok/Reels-style vertical news scroll.
+ * Bulletin home — TikTok/Reels-style vertical news scroll.
  * One story per screen, snap scrolling, multi-image AutoImageReel hero.
  */
-export default function RaadhavalhiFeedScroll({
+export default function BulletinFeedScroll({
   items,
   narrateLang,
   onOpen,
@@ -44,7 +44,7 @@ export default function RaadhavalhiFeedScroll({
   activeIndexRef.current = active;
 
   // Maintain a TTS instance
-  const tts = useMemo(() => new RaadhavalhiTts(), []);
+  const tts = useMemo(() => new BulletinTts(), []);
 
   useEffect(() => {
     tts.setVoice(narrateLang);
@@ -99,7 +99,7 @@ export default function RaadhavalhiFeedScroll({
                     setIsReading(false);
 
                     // Check if Auto-Scroll is enabled in settings
-                    const isAutoScroll = localStorage.getItem("raadhavalhi_auto_scroll") === "true";
+                    const isAutoScroll = localStorage.getItem("bulletin_auto_scroll") === "true";
                     if (isAutoScroll) {
                       go(1);
                     }
@@ -111,7 +111,7 @@ export default function RaadhavalhiFeedScroll({
             } else {
               currentStepRef.current = "idle";
               setIsReading(false);
-              const isAutoScroll = localStorage.getItem("raadhavalhi_auto_scroll") === "true";
+              const isAutoScroll = localStorage.getItem("bulletin_auto_scroll") === "true";
               if (isAutoScroll) go(1);
             }
           }, 2000);

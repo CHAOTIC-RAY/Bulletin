@@ -1,4 +1,4 @@
-// Raadhavalhi i18n — lightweight string table. UI language is independent of TTS narration language.
+// Bulletin i18n — lightweight string table. UI language is independent of TTS narration language.
 import { isRtlLang } from "./textDirection";
 
 export type LocaleCode = "en" | "dv";
@@ -11,7 +11,7 @@ export const LOCALES: { code: LocaleCode; label: string; english: string; rtl: b
 type Dict = Record<string, string>;
 
 const en: Dict = {
-  "app.name": "Raadhavalhi",
+  "app.name": "Bulletin",
   "app.tagline": "News, reimagined",
   "onboarding.title": "What do you want to follow?",
   "onboarding.subtitle": "Pick a few interests — we'll load the right sources. No RSS pasting.",
@@ -74,14 +74,14 @@ const TABLES: Record<LocaleCode, Dict> = { en, dv };
 
 export function getLocale(): LocaleCode {
   try {
-    const v = localStorage.getItem("raadhavalhi_locale");
+    const v = localStorage.getItem("bulletin_locale");
     return (v as LocaleCode) || "en";
   } catch {
     return "en";
   }
 }
 export function setLocale(code: LocaleCode): void {
-  localStorage.setItem("raadhavalhi_locale", code);
+  localStorage.setItem("bulletin_locale", code);
 }
 export function t(key: string, locale: LocaleCode = getLocale()): string {
   return TABLES[locale]?.[key] ?? TABLES.en[key] ?? key;

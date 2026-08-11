@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FeedItem } from "../lib/feedStorage";
 import { buildPersonalizedBrief, type PersonalizedBrief } from "../lib/briefService";
 import { getBriefSettings } from "../lib/feedStorage";
-import { RaadhavalhiTts } from "../lib/ttsPlayer";
+import { BulletinTts } from "../lib/ttsPlayer";
 import { textDirection } from "../lib/textDirection";
 import { Bookmark, BookmarkCheck, ArrowUpRight, Newspaper, Globe, Sparkles, Volume2, VolumeX } from "lucide-react";
 
@@ -16,7 +16,7 @@ interface Props {
 export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang }: Props) {
   const [pb, setPb] = useState<PersonalizedBrief | null>(null);
   const [playing, setPlaying] = useState(false);
-  const ttsRef = useRef<RaadhavalhiTts | null>(null);
+  const ttsRef = useRef<BulletinTts | null>(null);
   const [scopedCount, setScopedCount] = useState(0);
 
   const todayStr = useMemo(
@@ -48,7 +48,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
 
   const ensureTts = () => {
     if (!ttsRef.current) {
-      ttsRef.current = new RaadhavalhiTts({
+      ttsRef.current = new BulletinTts({
         onSubtitle: () => {},
         onEnded: () => setPlaying(false),
         onError: () => setPlaying(false),
@@ -109,7 +109,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
                 <span className="hidden sm:inline font-serif italic text-amber-900 dark:text-amber-400 font-extrabold">
                   "YOUR CURATED EDITION"
                 </span>
-                <span>RAADHAVALHI • DAILY PAPER</span>
+                <span>BULLETIN • DAILY PAPER</span>
               </div>
 
               <div className="py-2 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
@@ -128,7 +128,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
                     The Daily Paper
                   </h1>
                   <p className="text-xs sm:text-sm font-serif italic text-neutral-700 dark:text-neutral-300 font-medium mt-1.5">
-                    Raadhavalhi • Personalized News Brief & Global Intel
+                    Bulletin • Personalized News Brief & Global Intel
                   </p>
                 </div>
 
@@ -270,9 +270,9 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
             {/* Footer */}
             <footer className="mt-16 pt-8 border-t-4 border-double border-b-2 border-neutral-950 dark:border-neutral-200 text-center text-xs font-mono text-neutral-700 dark:text-neutral-400 space-y-2 pb-6">
               <p className="font-serif font-black uppercase tracking-widest text-neutral-950 dark:text-white text-sm">
-                End of Your Daily Edition • Raadhavalhi
+                End of Your Daily Edition • Bulletin
               </p>
-              <p>© 2026 Raadhavalhi. Personalized news brief composed from your selected sources & topics.</p>
+              <p>© 2026 Bulletin. Personalized news brief composed from your selected sources & topics.</p>
             </footer>
           </>
         )}

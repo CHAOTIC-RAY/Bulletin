@@ -1,4 +1,4 @@
-// Self-contained feed fetch + enrichment for Raadhavalhi.
+// Self-contained feed fetch + enrichment for Bulletin.
 // Works in both the Cloudflare Worker and the Node dev server (standard fetch/Response).
 //
 // "Best method per source" strategy (mirrors Kora's production scraper):

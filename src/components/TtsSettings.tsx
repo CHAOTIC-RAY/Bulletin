@@ -8,7 +8,7 @@ import {
 } from "../lib/piperVoiceManager";
 import { getWebSpeechVoices, getSortedWebSpeechVoices, ScoredVoice, onVoicesReady } from "../lib/webSpeechEngine";
 import { POLLY_VOICES } from "../lib/pollyEngine";
-import { RaadhavalhiTts, TtsEngineType } from "../lib/ttsPlayer";
+import { BulletinTts, TtsEngineType } from "../lib/ttsPlayer";
 import {
   Mic,
   Download,
@@ -29,39 +29,39 @@ import {
 
 export default function TtsSettings() {
   const [engine, setEngine] = useState<TtsEngineType>(() => {
-    return (localStorage.getItem("raadhavalhi_tts_engine") as TtsEngineType) || "webspeech";
+    return (localStorage.getItem("bulletin_tts_engine") as TtsEngineType) || "webspeech";
   });
 
   const [piperVoice, setPiperVoice] = useState<string>(() => {
-    return localStorage.getItem("raadhavalhi_piper_voice") || "ryan-high";
+    return localStorage.getItem("bulletin_piper_voice") || "ryan-high";
   });
 
   const [pollyVoiceId, setPollyVoiceId] = useState<string>(() => {
-    return localStorage.getItem("raadhavalhi_polly_voice") || "Matthew";
+    return localStorage.getItem("bulletin_polly_voice") || "Matthew";
   });
 
   const [webSpeechVoiceName, setWebSpeechVoiceName] = useState<string>(() => {
-    return localStorage.getItem("raadhavalhi_webspeech_voice") || "";
+    return localStorage.getItem("bulletin_webspeech_voice") || "";
   });
 
   const [webSpeechVoicesList, setWebSpeechVoicesList] = useState<ScoredVoice[]>([]);
 
   const [autoScroll, setAutoScroll] = useState<boolean>(() => {
-    return localStorage.getItem("raadhavalhi_auto_scroll") === "true";
+    return localStorage.getItem("bulletin_auto_scroll") === "true";
   });
 
   const [rate, setRate] = useState<number>(() => {
-    const r = localStorage.getItem("raadhavalhi_tts_rate");
+    const r = localStorage.getItem("bulletin_tts_rate");
     return r ? parseFloat(r) : 1.0;
   });
 
   const [pitch, setPitch] = useState<number>(() => {
-    const p = localStorage.getItem("raadhavalhi_tts_pitch");
+    const p = localStorage.getItem("bulletin_tts_pitch");
     return p ? parseFloat(p) : 1.0;
   });
 
   const [volume, setVolume] = useState<number>(() => {
-    const v = localStorage.getItem("raadhavalhi_tts_volume");
+    const v = localStorage.getItem("bulletin_tts_volume");
     return v ? Math.min(1, Math.max(0, parseFloat(v))) : 1.0;
   });
 
@@ -71,7 +71,7 @@ export default function TtsSettings() {
 
   const [isPlayingTest, setIsPlayingTest] = useState(false);
   const [activeTestPack, setActiveTestPack] = useState<string | null>(null);
-  const [ttsPlayer] = useState(() => new RaadhavalhiTts());
+  const [ttsPlayer] = useState(() => new BulletinTts());
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -86,7 +86,7 @@ export default function TtsSettings() {
   }, []);
 
   const loadWebSpeechVoices = () => {
-    const lang = localStorage.getItem("raadhavalhi_narrate_lang") || "en-US";
+    const lang = localStorage.getItem("bulletin_narrate_lang") || "en-US";
     const sorted = getSortedWebSpeechVoices(lang);
     setWebSpeechVoicesList(sorted);
     if (!webSpeechVoiceName && sorted.length > 0) {
@@ -104,15 +104,15 @@ export default function TtsSettings() {
 
   const handleSelectEngine = (eType: TtsEngineType) => {
     setEngine(eType);
-    localStorage.setItem("raadhavalhi_tts_engine", eType);
-    ttsPlayer.setEngine(eType, piperVoice, localStorage.getItem("raadhavalhi_narrate_lang") || "en-US");
+    localStorage.setItem("bulletin_tts_engine", eType);
+    ttsPlayer.setEngine(eType, piperVoice, localStorage.getItem("bulletin_narrate_lang") || "en-US");
   };
 
   const handleSelectWebSpeechVoice = (voiceName: string) => {
     setWebSpeechVoiceName(voiceName);
-    localStorage.setItem("raadhavalhi_webspeech_voice", voiceName);
+    localStorage.setItem("bulletin_webspeech_voice", voiceName);
     ttsPlayer.setVoice(
-      localStorage.getItem("raadhavalhi_narrate_lang") || "en-US",
+      localStorage.getItem("bulletin_narrate_lang") || "en-US",
       voiceName,
       rate,
       pitch,
@@ -122,22 +122,22 @@ export default function TtsSettings() {
 
   const handleSelectPiper = (packId: string) => {
     setPiperVoice(packId);
-    localStorage.setItem("raadhavalhi_piper_voice", packId);
-    ttsPlayer.setEngine("piper", packId, localStorage.getItem("raadhavalhi_narrate_lang") || "en-US");
+    localStorage.setItem("bulletin_piper_voice", packId);
+    ttsPlayer.setEngine("piper", packId, localStorage.getItem("bulletin_narrate_lang") || "en-US");
   };
 
   const handleSelectPolly = (vId: string) => {
     setPollyVoiceId(vId);
-    localStorage.setItem("raadhavalhi_polly_voice", vId);
+    localStorage.setItem("bulletin_polly_voice", vId);
     ttsPlayer.setPolly(vId, "neural");
-    ttsPlayer.setEngine("polly", piperVoice, localStorage.getItem("raadhavalhi_narrate_lang") || "en-US");
+    ttsPlayer.setEngine("polly", piperVoice, localStorage.getItem("bulletin_narrate_lang") || "en-US");
   };
 
   const handleRateChange = (newRate: number) => {
     setRate(newRate);
-    localStorage.setItem("raadhavalhi_tts_rate", String(newRate));
+    localStorage.setItem("bulletin_tts_rate", String(newRate));
     ttsPlayer.setVoice(
-      localStorage.getItem("raadhavalhi_narrate_lang") || "en-US",
+      localStorage.getItem("bulletin_narrate_lang") || "en-US",
       webSpeechVoiceName,
       newRate,
       pitch,
@@ -147,9 +147,9 @@ export default function TtsSettings() {
 
   const handlePitchChange = (newPitch: number) => {
     setPitch(newPitch);
-    localStorage.setItem("raadhavalhi_tts_pitch", String(newPitch));
+    localStorage.setItem("bulletin_tts_pitch", String(newPitch));
     ttsPlayer.setVoice(
-      localStorage.getItem("raadhavalhi_narrate_lang") || "en-US",
+      localStorage.getItem("bulletin_narrate_lang") || "en-US",
       webSpeechVoiceName,
       rate,
       newPitch,
@@ -159,7 +159,7 @@ export default function TtsSettings() {
 
   const handleVolumeChange = (newVol: number) => {
     setVolume(newVol);
-    localStorage.setItem("raadhavalhi_tts_volume", String(newVol));
+    localStorage.setItem("bulletin_tts_volume", String(newVol));
     ttsPlayer.setGain(newVol);
   };
 
@@ -209,7 +209,7 @@ export default function TtsSettings() {
     }
 
     const testText =
-      "Hello! Welcome to Raadhavalhi News. This is a live preview of your chosen speech voice.";
+      "Hello! Welcome to Bulletin News. This is a live preview of your chosen speech voice.";
 
     const testEngine = packId ? "piper" : pollyId ? "polly" : engine;
     const testPiper = packId || piperVoice;
@@ -233,9 +233,9 @@ export default function TtsSettings() {
       },
     });
 
-    ttsPlayer.setEngine(testEngine, testPiper, localStorage.getItem("raadhavalhi_narrate_lang") || "en-US");
+    ttsPlayer.setEngine(testEngine, testPiper, localStorage.getItem("bulletin_narrate_lang") || "en-US");
     ttsPlayer.setVoice(
-      localStorage.getItem("raadhavalhi_narrate_lang") || "en-US",
+      localStorage.getItem("bulletin_narrate_lang") || "en-US",
       targetVoice,
       rate,
       pitch,
@@ -763,7 +763,7 @@ export default function TtsSettings() {
           onClick={() => {
             const next = !autoScroll;
             setAutoScroll(next);
-            localStorage.setItem("raadhavalhi_auto_scroll", next ? "true" : "false");
+            localStorage.setItem("bulletin_auto_scroll", next ? "true" : "false");
           }}
           className={`w-14 h-8 rounded-none p-1 border-2 transition-colors duration-300 relative shrink-0 ${
             autoScroll ? "bg-amber-500 border-amber-600" : "bg-white/20 border-white/10"

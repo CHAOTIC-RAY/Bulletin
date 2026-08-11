@@ -1,4 +1,4 @@
-// Raadhavalhi feed client — fetches RSS via the app's own /api/feed/fetch
+// Bulletin feed client — fetches RSS via the app's own /api/feed/fetch
 // enrichment endpoint; falls back to a public RSS->JSON proxy when offline.
 import { FeedItem, FeedSubscription, parseFeedJson, isJunkFeedItem } from "./feedStorage";
 

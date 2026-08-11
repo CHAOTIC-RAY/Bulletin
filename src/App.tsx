@@ -12,7 +12,7 @@ import {
 import { refreshAllSubscriptions, collectArticleImages } from "./lib/feedClient";
 import { isAdOrPromotional, matchItemTopic } from "./lib/feedEnrich";
 import { getLocale, setLocale, localeIsRtl, LocaleCode, t } from "./lib/i18n";
-import RaadhavalhiFeedScroll from "./components/RaadhavalhiFeedScroll";
+import BulletinFeedScroll from "./components/BulletinFeedScroll";
 import MagazineFeedScroll from "./components/MagazineFeedScroll";
 import DailyBriefCard from "./components/DailyBriefCard";
 import FeedReader from "./components/FeedReader";
@@ -27,7 +27,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("setup");
   const [uiLocale, setUiLocale] = useState<LocaleCode>(getLocale());
   const [narrateLang, setNarrateLang] = useState<string>(
-    localStorage.getItem("raadhavalhi_narrate_lang") || "en-US"
+    localStorage.getItem("bulletin_narrate_lang") || "en-US"
   );
   const [items, setItems] = useState<FeedItem[]>([]);
   const [selected, setSelected] = useState<FeedItem | null>(null);
@@ -78,7 +78,7 @@ export default function App() {
     setUiLocale(ui);
     setLocale(ui);
     setNarrateLang(narr);
-    localStorage.setItem("raadhavalhi_narrate_lang", narr);
+    localStorage.setItem("bulletin_narrate_lang", narr);
     
     // Default all topics on
     applySelectedFeedSources(TOPIC_FEED_GROUPS.map((g) => g.id));
@@ -221,7 +221,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <img
               src="/logo.svg"
-              alt="Raadhavalhi"
+              alt="Bulletin"
               className={`w-9 h-9 object-contain ${isImmersive ? "drop-shadow-md" : ""}`}
             />
             <span className={`hidden sm:inline font-extrabold tracking-tight text-xl ${isImmersive ? 'text-white drop-shadow-md' : 'text-black dark:text-white'}`}>{t("app.name")}</span>
@@ -286,7 +286,7 @@ export default function App() {
       <div className={`h-full w-full`}>
         {displayedItems.length ? (
           isImmersive ? (
-            <RaadhavalhiFeedScroll
+            <BulletinFeedScroll
               items={displayedItems}
               narrateLang={narrateLang}
               onOpen={openReader}
