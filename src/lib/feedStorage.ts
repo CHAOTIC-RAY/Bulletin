@@ -100,7 +100,7 @@ export const COUNTRY_FEED_GROUPS: { country: string; flag: string; feeds: Omit<F
       { title: "Associated Press (AP)", siteUrl: "https://apnews.com/", feedUrl: "https://apnews.com/rss" },
       { title: "Al Jazeera English", siteUrl: "https://www.aljazeera.com/", feedUrl: "https://www.aljazeera.com/xml/rss/all.xml" },
       { title: "BBC World News", siteUrl: "https://www.bbc.com/news/world", feedUrl: "https://feeds.bbci.co.uk/news/world/rss.xml" },
-      { title: "Bloomberg Markets", siteUrl: "https://www.bloomberg.com/", feedUrl: "https://feeds.bloomberg.com/markets/news.rss" },
+      { title: "Business Insider", siteUrl: "https://www.businessinsider.com/", feedUrl: "https://www.businessinsider.com/rss" },
       { title: "UN News", siteUrl: "https://news.un.org/", feedUrl: "https://news.un.org/feed/subscribe/en/news/all/rss.xml" },
     ],
   },
@@ -109,7 +109,7 @@ export const COUNTRY_FEED_GROUPS: { country: string; flag: string; feeds: Omit<F
     flag: "🇺🇸",
     feeds: [
       { title: "NPR News", siteUrl: "https://www.npr.org/", feedUrl: "https://feeds.npr.org/1001/rss.xml" },
-      { title: "CNN World", siteUrl: "https://www.cnn.com/world", feedUrl: "http://rss.cnn.com/rss/edition_world.rss" },
+      { title: "CNN World", siteUrl: "https://www.cnn.com/world", feedUrl: "https://rss.cnn.com/rss/edition_world.rss" },
       { title: "The Verge", siteUrl: "https://www.theverge.com/", feedUrl: "https://www.theverge.com/rss/index.xml" },
       { title: "TechCrunch", siteUrl: "https://techcrunch.com/", feedUrl: "https://techcrunch.com/feed/" },
       { title: "Wall Street Journal", siteUrl: "https://www.wsj.com/", feedUrl: "https://feeds.content.dowjones.io/public/rss/RSSWorldNews" },
@@ -196,7 +196,7 @@ export const COUNTRY_FEED_GROUPS: { country: string; flag: string; feeds: Omit<F
     feeds: [
       { title: "UN News", siteUrl: "https://news.un.org/", feedUrl: "https://news.un.org/feed/subscribe/en/news/all/rss.xml" },
       { title: "Science Daily", siteUrl: "https://www.sciencedaily.com/", feedUrl: "https://www.sciencedaily.com/rss/all.xml" },
-      { title: "Ars Technica", siteUrl: "https://arstechnica.com/", feedUrl: "http://feeds.arstechnica.com/arstechnica/index" },
+      { title: "Ars Technica", siteUrl: "https://arstechnica.com/", feedUrl: "https://feeds.arstechnica.com/arstechnica/index" },
       { title: "ESPN", siteUrl: "https://www.espn.com/", feedUrl: "https://www.espn.com/espn/rss/news" },
     ],
   },
