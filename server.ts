@@ -38,6 +38,30 @@ async function startServer() {
     }
   });
 
+  // Daily news brief — Groq AI polish with on-device fallback.
+  app.post("/api/brief/groq", async (req, res) => {
+    try {
+      const { articles, key } = req.body || {};
+      if (!Array.isArray(articles) || !articles.length) {
+        return res.status(400).json({ error: "articles[] required" });
+      }
+      const apiKey = (typeof key === "string" && key.trim()) || process.env.GROQ_API_KEY || "";
+      const { generateBrief } = await import("./src/lib/groqBrief");
+      const dateKey =
+        new Date().getFullYear() +
+        "-" +
+        String(new Date().getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(new Date().getDate()).padStart(2, "0");
+      const result = await generateBrief(articles, dateKey, apiKey);
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      return res.json(result);
+    } catch (error: any) {
+      return res.status(502).json({ error: error?.message || "Brief generation failed" });
+    }
+  });
+
   // Enriched feed: fetch + parse + per-source image/content enrichment.
   app.get("/api/feed/fetch", async (req, res) => {
     try {

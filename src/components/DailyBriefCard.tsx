@@ -1,10 +1,10 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { FeedItem } from "../lib/feedStorage";
-import { buildDailyBrief, BriefArticleInput } from "../lib/generateNewsBrief";
+import { buildDailyBrief, type BriefArticleInput, type GeneratedDailyBrief } from "../lib/generateNewsBrief";
 import { RaadhavalhiTts } from "../lib/ttsPlayer";
 import { t, getLocale } from "../lib/i18n";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Volume2, VolumeX, Sparkles } from "lucide-react";
 
 interface Props {
   items: FeedItem[];
@@ -19,17 +19,53 @@ function dayKey(ts: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+async function fetchGroqBrief(articles: BriefArticleInput[]): Promise<{ brief: GeneratedDailyBrief; source: string }> {
+  try {
+    const res = await fetch("/api/brief/groq", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ articles }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as any;
+    if (data?.brief?.sections?.length) return { brief: data.brief as GeneratedDailyBrief, source: (data.source as string) || "groq" };
+    throw new Error("empty");
+  } catch {
+    // Always fall back to the on-device generator — never break the brief.
+    const today = Date.now();
+    return { brief: buildDailyBrief(articles, dayKey(today)), source: "fallback" };
+  }
+}
+
 export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, showBanner = true }: Props) {
   const locale = getLocale();
-  const brief = useMemo(() => {
+  const [brief, setBrief] = useState<GeneratedDailyBrief | null>(null);
+  const [briefSource, setBriefSource] = useState<string>("fallback");
+
+  const articles = useMemo<BriefArticleInput[]>(() => {
     const today = Date.now();
-    const articles: BriefArticleInput[] = items
+    return items
       .filter((i) => dayKey(i.publishedAt) === dayKey(today))
       .slice(0, 24)
       .map((i) => ({ id: i.id, source: i.subscriptionTitle, title: i.title, summary: i.summary, link: i.link }));
-    if (articles.length < 2) return null;
-    return buildDailyBrief(articles, dayKey(today));
   }, [items]);
+
+  useEffect(() => {
+    let alive = true;
+    if (articles.length < 2) {
+      setBrief(null);
+      return;
+    }
+    fetchGroqBrief(articles).then(({ brief, source }) => {
+      if (alive) {
+        setBrief(brief);
+        setBriefSource(source);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [articles]);
 
   const ttsRef = useRef<RaadhavalhiTts | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -58,7 +94,8 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
   };
 
   const buildSpokenText = () => {
-    const parts = [brief!.lead];
+    if (!brief) return "";
+    const parts = [brief.lead];
     for (const s of brief!.sections) {
       parts.push(`${s.source}. ${s.intro}`);
       for (const it of s.items) parts.push(`${it.headline}. ${it.detail}`);
@@ -91,7 +128,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <span className="text-xs font-bold uppercase tracking-widest text-amber-400">⚡ {t("brief.title")}</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-amber-400">⚡ {t("brief.title")}{briefSource === "groq" && <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-amber-300 border border-amber-500/40 px-1 align-middle"><Sparkles className="w-3 h-3" />AI</span>}</span>
             <button
               onClick={toggleListen}
               className={`px-4 py-2 rounded-none border-2 border-neutral-950 dark:border-neutral-200 text-xs font-extrabold flex items-center gap-1.5 transition-colors ${
@@ -145,6 +182,11 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
               <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400">⚡ {t("brief.title")}</span>
+              {briefSource === "groq" && (
+                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-400 border border-amber-500/40 px-1 rounded-none">
+                  <Sparkles className="w-2.5 h-2.5" /> AI
+                </span>
+              )}
             </div>
             <span className="text-[10px] font-mono text-neutral-500">
               {storyCount} stories · {brief.sections.length} sources

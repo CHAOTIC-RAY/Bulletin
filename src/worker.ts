@@ -6,7 +6,7 @@ function isApiRequest(pathname: string): boolean {
   return pathname.startsWith("/api/");
 }
 
-async function handleApi(request: Request): Promise<Response> {
+async function handleApi(request: Request, env: any): Promise<Response> {
   const url = new URL(request.url);
 
   if (url.pathname === "/api/health") {
@@ -102,14 +102,40 @@ async function handleApi(request: Request): Promise<Response> {
     }
   }
 
+  // Daily news brief — Groq AI polish with on-device fallback.
+  if (url.pathname === "/api/brief/groq" && request.method === "POST") {
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    const articles = body?.articles;
+    if (!Array.isArray(articles) || !articles.length) {
+      return Response.json({ error: "articles[] required" }, { status: 400 });
+    }
+    try {
+      const { generateBrief } = await import("./lib/groqBrief");
+      const apiKey = (typeof body?.key === "string" && body.key.trim()) || env?.GROQ_API_KEY || "";
+      const d = new Date();
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const result = await generateBrief(articles, dateKey, apiKey);
+      return Response.json(result, {
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      });
+    } catch (error: any) {
+      return Response.json({ error: error?.message || "Brief generation failed" }, { status: 502 });
+    }
+  }
+
   return Response.json({ error: "Not found" }, { status: 404 });
 }
 
 export default {
-  async fetch(request: Request, _env: unknown, _ctx: unknown): Promise<Response> {
+  async fetch(request: Request, env: any, _ctx: unknown): Promise<Response> {
     const url = new URL(request.url);
     if (isApiRequest(url.pathname)) {
-      return handleApi(request);
+      return handleApi(request, env);
     }
     // Static assets (built SPA) are served automatically by the Workers
     // Static Assets binding configured in wrangler.jsonc. This branch only runs
