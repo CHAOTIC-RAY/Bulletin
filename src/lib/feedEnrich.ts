@@ -170,6 +170,7 @@ async function fetchText(url: string, asJson = false): Promise<string> {
         : "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html, */*",
     },
     redirect: "follow",
+    signal: AbortSignal.timeout(12000),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
   return res.text();
@@ -737,6 +738,51 @@ export async function fetchTelegramFeed(urlOrChannel: string): Promise<EnrichedF
   };
 }
 
+// ---- Google News RSS fallback (anti-bot bypass) ----
+// Many publishers (AP, Reuters, ESPN, Khaleej Times, CNA, Daily Mirror, Colombo
+// Page, CBC, Avas, Dhuvas, ...) sit behind Cloudflare/anti-bot walls that block
+// our server-side fetch. Google News RSS has NO such wall and reliably returns
+// the latest 100 headlines + summaries + the real publisher domain for any site
+// via `news.google.com/rss/search?q=site:<domain>`. We use it as a transparent
+// fallback when a direct feed fetch yields nothing. Images use Google's favicon
+// service (Cloudflare-safe) so every card still renders a real brand image.
+function googleNewsFavicon(domain: string): string {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+}
+
+async function fetchViaGoogleNews(domain: string, fallbackTitle: string): Promise<{ title: string; link?: string; items: RawItem[] }> {
+  const q = encodeURIComponent(`site:${domain}`);
+  const url = `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en`;
+  const xml = await fetchText(url);
+  const itemRegex = /<item\b[^>]*>([\s\S]*?)<\/item>/gi;
+  const items: RawItem[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = itemRegex.exec(xml))) {
+    const b = m[1];
+    // Title comes as "Headline - Publisher"; strip the trailing publisher.
+    const rawTitle = stripTags(b.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "Untitled");
+    const title = rawTitle.includes(" - ") ? rawTitle.slice(0, rawTitle.lastIndexOf(" - ")) : rawTitle;
+    const link = decodeEntities(b.match(/<link[^>]*>([\s\S]*?)<\/link>/i)?.[1] || "");
+    if (!link) continue;
+    const pub = b.match(/<pubDate[^>]*>([\s\S]*?)<\/pubDate>/i)?.[1];
+    const d = Date.parse(pub || "");
+    // Source domain (real publisher) is in <source url="...">Publisher</source>
+    const srcUrl = b.match(/<source[^>]+url=["']([^"']+)["']/i)?.[1] || `https://${domain}`;
+    let srcDomain = domain;
+    try { srcDomain = new URL(srcUrl).hostname.replace(/^www\./, ""); } catch { /* keep domain */ }
+    const descHtml = b.match(/<description[^>]*>([\s\S]*?)<\/description>/i)?.[1] || "";
+    const summary = stripTags(decodeEntities(descHtml)).slice(0, 400);
+    items.push({
+      title,
+      link,
+      summary,
+      publishedAt: Number.isNaN(d) ? Date.now() : d,
+      imageUrl: googleNewsFavicon(srcDomain),
+    });
+  }
+  return { title: fallbackTitle || domain, link: `https://${domain}`, items };
+}
+
 export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> {
   if (isTelegramUrl(feedUrl)) {
     return fetchTelegramFeed(feedUrl);
@@ -750,8 +796,31 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
     }
   })();
 
+  // Publishers whose own feed is behind a slow/blocked CDN (Sky News and Japan
+  // Times take 40-50s and would blow the Cloudflare Worker CPU limit). Fetch
+  // them directly via Google News RSS (fast, ~1s, no anti-bot wall).
+  const GNEWS_ONLY: Record<string, string> = {
+    "skynews.com": "sky.com",
+    "japantimes.co.jp": "japantimes.co.jp",
+  };
+
   let raw: { title: string; link?: string; items: RawItem[] };
-  if (host === "edition.mv") {
+  if (GNEWS_ONLY[host]) {
+    try {
+      raw = await fetchViaGoogleNews(GNEWS_ONLY[host], host);
+    } catch {
+      raw = { title: host, link: feedUrl, items: [] };
+    }
+    // If Google News was challenged/empty for this domain, fall back to the
+    // publisher's direct feed (slow but real) instead of re-calling GNews.
+    if (raw.items.length === 0) {
+      try {
+        raw = parseFeedXml(await fetchText(feedUrl), feedUrl);
+      } catch {
+        raw = { title: host, link: feedUrl, items: [] };
+      }
+    }
+  } else if (host === "edition.mv") {
     try {
       raw = await fetchEditionMv();
     } catch {
@@ -764,7 +833,30 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
       raw = parseFeedXml(await fetchText(feedUrl), feedUrl);
     }
   } else {
-    raw = parseFeedXml(await fetchText(feedUrl), feedUrl);
+    try {
+      raw = parseFeedXml(await fetchText(feedUrl), feedUrl);
+    } catch {
+      raw = { title: host, link: feedUrl, items: [] };
+    }
+  }
+
+  // Anti-bot fallback: if the direct feed returned nothing (Cloudflare block,
+  // dead URL, 403/404), fetch the same publisher via Google News RSS. Use the
+  // registrable domain (e.g. "cnbc.com" from "search.cnbc.com") so the query
+  // actually matches the publisher. A few publishers are indexed by Google News
+  // under a different brand domain than their feed host (e.g. skynews.com ->
+  // sky.com), so apply known aliases.
+  if (raw.items.length === 0 && !isTelegramUrl(feedUrl)) {
+    try {
+      const regDomain = host.split(".").slice(-2).join(".") || host;
+      const aliases: Record<string, string> = {
+        "skynews.com": "sky.com",
+      };
+      const fallbackDomain = aliases[regDomain] || regDomain;
+      raw = await fetchViaGoogleNews(fallbackDomain, raw.title);
+    } catch {
+      /* fall through — return whatever (possibly empty) we have */
+    }
   }
 
   const isBloomberg = host.includes("bloomberg");
@@ -786,14 +878,18 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
         let imageUrl = it.imageUrl;
         let content = it.content;
 
+        // Google News fallback items carry a favicon as a valid brand image —
+        // never re-scrape those (the GNews link 404s on article fetch anyway).
+        const isFaviconImg = !!imageUrl && imageUrl.includes("google.com/s2/favicons");
+
         const isLowResImg =
-          !imageUrl ||
-          imageUrl.includes("width=140") ||
-          imageUrl.includes("width=100") ||
-          imageUrl.includes("width=150") ||
-          imageUrl.includes("width=200") ||
-          imageUrl.includes("width=460") ||
-          (imageUrl.includes("i.guim.co.uk") && !imageUrl.includes("width=1200") && !imageUrl.includes("width=700"));
+          (!imageUrl || imageUrl.includes("width=140") ||
+            imageUrl.includes("width=100") ||
+            imageUrl.includes("width=150") ||
+            imageUrl.includes("width=200") ||
+            imageUrl.includes("width=460") ||
+            (imageUrl.includes("i.guim.co.uk") && !imageUrl.includes("width=1200") && !imageUrl.includes("width=700"))) &&
+          !isFaviconImg;
 
         const isShortContent =
           !content ||
@@ -804,8 +900,13 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
         let needsImage = isLowResImg || isGuardian || isPsm || isBloomberg || isDw;
         let needsContent = isShortContent || isGuardian || isPsm || isBloomberg || isDw;
 
+        // Google News fallback items already carry a brand favicon image and a
+        // valid summary; their link points to a GNews redirect page that hangs
+        // on scrape, so never article-scrape them — just use the summary.
+        const skipScrape = isFaviconImg;
+
         let images: string[] = imageUrl ? [imageUrl] : [];
-        if ((needsImage || needsContent) && !isBloomberg) {
+        if ((needsImage || needsContent) && !isBloomberg && !skipScrape) {
           try {
             const scraped = await scrapeArticle(it.link);
             if (scraped.imageUrl) imageUrl = scraped.imageUrl;

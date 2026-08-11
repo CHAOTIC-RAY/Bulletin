@@ -180,7 +180,7 @@ export const COUNTRY_FEED_GROUPS: { country: string; flag: string; feeds: Omit<F
     flag: "🇱🇰",
     feeds: [
       { title: "Daily Mirror SL", siteUrl: "https://www.dailymirror.lk/", feedUrl: "https://www.dailymirror.lk/rss/online_edition" },
-      { title: "Colombo Page", siteUrl: "http://www.colombopage.com/", feedUrl: "http://www.colombopage.com/rss.xml" },
+      { title: "Ada Derana", siteUrl: "https://www.adaderana.lk/", feedUrl: "https://www.adaderana.lk/rss.php" },
     ],
   },
   {
