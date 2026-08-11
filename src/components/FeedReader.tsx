@@ -4,6 +4,7 @@ import { textDirection } from "../lib/textDirection";
 import { RaadhavalhiTts } from "../lib/ttsPlayer";
 import { t, getLocale } from "../lib/i18n";
 import { createPortal } from "react-dom";
+import { cleanArticleHtml, cleanTtsText } from "../lib/feedSanitize";
 
 interface Props {
   item: FeedItem | null;
@@ -37,6 +38,10 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
     return ttsRef.current;
   };
 
+  const sanitizeAndCleanHtml = (html: string): string => {
+    return cleanArticleHtml(html);
+  };
+
   const toggleListen = () => {
     const tts = ensureTts();
     if (playing) {
@@ -44,21 +49,12 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
       setPlaying(false);
       return;
     }
-    const fullText = item!.content
-      ? item!.content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
-      : item!.summary || "";
+    const fullText = item!.content ? cleanTtsText(item!.content) : item!.summary ? cleanTtsText(item!.summary) : "";
     const text = `${item!.title}. ${fullText}`;
     tts.setVoice(narrateLang, "", 1, 1);
     tts.play(text);
     setPlaying(true);
   };
-
-  // Strip scripts/styles and inline event handlers before rendering article HTML.
-  const sanitize = (html: string): string =>
-    html
-      .replace(/<\s*(script|style|iframe|object|embed)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
-      .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "")
-      .replace(/javascript:/gi, "");
 
   const isRtl = locale === "dv";
 
@@ -85,31 +81,14 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
           <div
             dir={dir}
             className={`prose-reader text-lg sm:text-xl md:text-2xl leading-relaxed ${dir === "rtl" ? "font-thaana text-right" : ""}`}
-            dangerouslySetInnerHTML={{ __html: sanitize(item.content) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeAndCleanHtml(item.content) }}
           />
         ) : (
           <div
             dir={textDirection(item.summary || "")}
             className={`prose-reader text-lg sm:text-xl md:text-2xl leading-relaxed ${textDirection(item.summary || "") === "rtl" ? "font-thaana text-right" : ""}`}
-            dangerouslySetInnerHTML={{ __html: sanitize(item.summary || "") }}
+            dangerouslySetInnerHTML={{ __html: sanitizeAndCleanHtml(item.summary || "") }}
           />
-        )}
-
-        {item.images && item.images.length > 1 && (
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            {item.images.map((img, i) =>
-              i === 0 ? null : (
-                <img
-                  key={i}
-                  src={img}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  className="w-full h-40 object-cover rounded-lg"
-                  loading="lazy"
-                />
-              )
-            )}
-          </div>
         )}
 
         <a href={item.link} target="_blank" rel="noopener noreferrer" className="mt-6 inline-block text-amber-600 dark:text-amber-400 underline font-bold">

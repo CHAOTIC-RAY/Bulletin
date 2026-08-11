@@ -13,7 +13,15 @@ body,
   -webkit-font-smoothing: antialiased;
 }
 
-/* Hide scrollbars for the immersive feed */
+/* Hide scrollbars globally */
+* {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;    /* Firefox */
+}
+*::-webkit-scrollbar {
+  display: none;            /* Chrome, Safari and Opera */
+}
+
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }

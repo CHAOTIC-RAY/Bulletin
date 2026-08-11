@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net: Default-deny all unmapped paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // STANDALONE VALIDATION HELPERS (The "Anti-Update-Gap" Blueprint)
+
+    // Helper to validate document ID format (Path Variable Hardening)
+    function isValidHash(hash) {
+      return hash is string 
+        && hash.size() == 40 
+        && hash.matches('^[a-fA-F0-9]+$');
+    }
+
+    // Helper to extract incoming and existing data
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation blueprint for pollyCache documents
+    function isValidPollyCache(data, isCreate) {
+      return data.keys().hasAll(['text', 'voiceId', 'engine', 'rate', 'size', 'hits', 'createdAt', 'audioB64'])
+        && data.keys().size() == 8
+        && data.text is string && data.text.size() <= 10000
+        && data.voiceId is string && data.voiceId.size() <= 64
+        && data.engine is string && data.engine.size() <= 32
+        && data.rate is number && data.rate >= 0.0 && data.rate <= 5.0
+        && data.size is int && data.size >= 0
+        && data.hits is int && data.hits >= 0
+        && data.createdAt is timestamp
+        && (isCreate ? (data.createdAt == request.time) : (data.createdAt == existing().createdAt))
+        && data.audioB64 is string && data.audioB64.size() <= 1048576;
+    }
+
+    // Validation blueprint for pollyCacheMeta documents
+    function isValidPollyCacheMeta(data, isCreate) {
+      return data.keys().hasAll(['totalDocs', 'lastSweep'])
+        && data.keys().size() == 2
+        && data.totalDocs is int && data.totalDocs >= 0
+        && data.lastSweep is timestamp
+        && (isCreate ? (data.lastSweep == request.time) : true);
+    }
+
+    // 2. pollyCache Match Block
+    match /pollyCache/{hash} {
+      allow get: if isValidHash(hash);
+      
+      // Query Enforcer: list queries must validate resource properties
+      allow list: if resource.data.createdAt is timestamp && resource.data.hits >= 0;
+
+      allow create: if isValidHash(hash) 
+        && isValidPollyCache(incoming(), true)
+        && incoming().hits == 0;
+
+      // Action-Based Update Pattern (only hits increments are allowed)
+      allow update: if isValidHash(hash)
+        && isValidPollyCache(incoming(), false)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['hits'])
+        && incoming().hits == existing().hits + 1;
+
+      allow delete: if isValidHash(hash);
+    }
+
+    // 3. pollyCacheMeta Match Block
+    match /pollyCacheMeta/{docId} {
+      allow get: if docId == 'sweep';
+
+      allow create: if docId == 'sweep'
+        && isValidPollyCacheMeta(incoming(), true)
+        && incoming().totalDocs == 1;
+
+      // Action-Based Update Pattern for meta doc transitions
+      allow update: if docId == 'sweep'
+        && isValidPollyCacheMeta(incoming(), false) && (
+          // Action 1: Client increments total count of documents
+          (incoming().diff(existing()).affectedKeys().hasOnly(['totalDocs']) && incoming().totalDocs == existing().totalDocs + 1) ||
+          // Action 2: Client sweep resets/updates total count and sweep time
+          (incoming().diff(existing()).affectedKeys().hasOnly(['totalDocs', 'lastSweep']) && incoming().lastSweep == request.time) ||
+          // Action 3: Sweep interval update clock refresh only
+          (incoming().diff(existing()).affectedKeys().hasOnly(['lastSweep']) && incoming().lastSweep == request.time)
+        );
+    }
+  }
+}

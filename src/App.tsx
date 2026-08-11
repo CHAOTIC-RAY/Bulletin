@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   ensureDefaultSubscriptions,
   FeedItem,
@@ -10,13 +10,15 @@ import {
   TOPIC_FEED_GROUPS,
 } from "./lib/feedStorage";
 import { refreshAllSubscriptions, collectArticleImages } from "./lib/feedClient";
+import { isAdOrPromotional, matchItemTopic } from "./lib/feedEnrich";
 import { getLocale, setLocale, localeIsRtl, LocaleCode, t } from "./lib/i18n";
 import RaadhavalhiFeedScroll from "./components/RaadhavalhiFeedScroll";
 import MagazineFeedScroll from "./components/MagazineFeedScroll";
 import DailyBriefCard from "./components/DailyBriefCard";
 import FeedReader from "./components/FeedReader";
 import LanguageSetup from "./components/LanguageSetup";
-import { Settings, RefreshCw, LayoutTemplate, Smartphone } from "lucide-react";
+import FilterModal, { FilterOptions, DEFAULT_FILTER_OPTIONS } from "./components/FilterModal";
+import { Settings, RefreshCw, LayoutTemplate, Smartphone, SlidersHorizontal } from "lucide-react";
 
 type Screen = "setup" | "home";
 type ViewMode = "immersive" | "magazine";
@@ -32,7 +34,8 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("immersive");
   const [showBrief, setShowBrief] = useState(false);
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>(DEFAULT_FILTER_OPTIONS);
 
   useEffect(() => {
     // If a previous session configured sources, skip setup.
@@ -99,21 +102,114 @@ export default function App() {
     saveFeedItems(next);
   };
 
+  // Derive list of available sources and article counts
+  const availableSources = useMemo(() => {
+    const counts: Record<string, number> = {};
+    items.forEach((item) => {
+      const src = item.subscriptionTitle?.trim() || "General News";
+      counts[src] = (counts[src] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([title, count]) => ({ title, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [items]);
+
+  // Available topics for filtering
+  const availableTopics = [
+    { id: "all", label: "All Topics" },
+    { id: "maldives", label: "Maldives Local" },
+    { id: "politics", label: "Politics & World" },
+    { id: "business", label: "Business & Economy" },
+    { id: "tech", label: "Technology & AI" },
+    { id: "sports", label: "Sports & Football" },
+    { id: "tourism", label: "Tourism & Travel" },
+    { id: "science", label: "Science & Environment" },
+    { id: "health", label: "Health & Medicine" },
+    { id: "education", label: "Education & Youth" },
+    { id: "culture", label: "Culture & Lifestyle" },
+    { id: "religion", label: "Religion & Faith" },
+  ];
+
+  // Filter and sort items dynamically
+  const displayedItems = useMemo(() => {
+    let list = items.filter((item) => {
+      // Filter out promotional ads, special offers, and sales listings
+      if (isAdOrPromotional(item.title, item.summary || "", item.content || "")) {
+        return false;
+      }
+
+      const isThaana =
+        /[\u0780-\u07BF]/.test(item.title) ||
+        /[\u0780-\u07BF]/.test(item.summary || "") ||
+        /[\u0780-\u07BF]/.test(item.content || "");
+      if (uiLocale !== "dv" && isThaana) {
+        return false;
+      }
+
+      // Filter by Date Range
+      if (filterOptions.dateRange !== "all") {
+        const now = Date.now();
+        const pub = item.publishedAt || now;
+        if (filterOptions.dateRange === "24h" && pub < now - 24 * 3600 * 1000) return false;
+        if (filterOptions.dateRange === "7d" && pub < now - 7 * 24 * 3600 * 1000) return false;
+        if (filterOptions.dateRange === "30d" && pub < now - 30 * 24 * 3600 * 1000) return false;
+      }
+
+      // Filter by Source
+      if (filterOptions.selectedSources.length > 0) {
+        const srcTitle = item.subscriptionTitle?.trim() || "General News";
+        if (!filterOptions.selectedSources.includes(srcTitle)) {
+          return false;
+        }
+      }
+
+      // Filter by Topic
+      if (filterOptions.selectedTopic !== "all") {
+        if (!matchItemTopic(item, filterOptions.selectedTopic)) {
+          return false;
+        }
+      }
+
+      // Filter by Search Query Keyword
+      if (filterOptions.searchQuery.trim()) {
+        const q = filterOptions.searchQuery.toLowerCase().trim();
+        const text = `${item.title} ${item.summary || ""} ${item.content || ""} ${item.subscriptionTitle || ""}`.toLowerCase();
+        if (!text.includes(q)) return false;
+      }
+
+      return true;
+    });
+
+    // Sorting news items
+    return list.sort((a, b) => {
+      if (filterOptions.sortBy === "oldest") {
+        return (a.publishedAt || 0) - (b.publishedAt || 0);
+      }
+      if (filterOptions.sortBy === "source") {
+        const sa = (a.subscriptionTitle || "").toLowerCase();
+        const sb = (b.subscriptionTitle || "").toLowerCase();
+        return sa.localeCompare(sb);
+      }
+      if (filterOptions.sortBy === "title") {
+        return a.title.localeCompare(b.title);
+      }
+      // Default: newest first
+      return (b.publishedAt || 0) - (a.publishedAt || 0);
+    });
+  }, [items, uiLocale, filterOptions]);
+
+  const hasActiveFilters =
+    filterOptions.sortBy !== "newest" ||
+    filterOptions.dateRange !== "all" ||
+    filterOptions.selectedTopic !== "all" ||
+    filterOptions.selectedSources.length > 0 ||
+    filterOptions.searchQuery.trim().length > 0;
+
   if (screen === "setup") {
     return <LanguageSetup onDone={onSetupDone} />;
   }
 
   const isImmersive = viewMode === "immersive";
-
-  const displayedItems = items.filter((item) => {
-    const isThaana = /[\u0780-\u07BF]/.test(item.title) || 
-                     /[\u0780-\u07BF]/.test(item.summary || "") || 
-                     /[\u0780-\u07BF]/.test(item.content || "");
-    if (uiLocale !== "dv" && isThaana) {
-      return false;
-    }
-    return true;
-  });
 
   return (
     <div className={`h-[100dvh] w-full overflow-hidden transition-colors duration-500 ${uiLocale === "dv" ? "font-thaana" : ""} ${isImmersive ? 'bg-neutral-950 text-white' : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white'}`}>
@@ -128,7 +224,7 @@ export default function App() {
               alt="Raadhavalhi"
               className={`w-9 h-9 object-contain ${isImmersive ? "drop-shadow-md" : ""}`}
             />
-            <span className={`font-extrabold tracking-tight text-xl ${isImmersive ? 'text-white drop-shadow-md' : 'text-black dark:text-white'}`}>{t("app.name")}</span>
+            <span className={`hidden sm:inline font-extrabold tracking-tight text-xl ${isImmersive ? 'text-white drop-shadow-md' : 'text-black dark:text-white'}`}>{t("app.name")}</span>
           </div>
 
           <div className={`flex items-center p-1 rounded-full backdrop-blur-md shadow-sm border ${isImmersive ? 'bg-black/40 border-white/10' : 'bg-white/80 dark:bg-black/50 border-neutral-200 dark:border-neutral-800'}`}>
@@ -161,7 +257,7 @@ export default function App() {
               onClick={() => void loadFeeds()}
               disabled={refreshing}
               className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${
-                isImmersive ? 'bg-black/40 hover:bg-black/60 text-white border-white/10' : 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700'
+                isImmersive ? 'bg-black/40 hover:bg-black/60 text-white border-white/10 border' : 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700'
               }`}
             >
               <RefreshCw className={`w-5 h-5 ${refreshing ? "animate-spin text-amber-500" : ""}`} />
@@ -169,7 +265,7 @@ export default function App() {
             <button
               onClick={() => setScreen("setup")}
               className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${
-                isImmersive ? 'bg-black/40 hover:bg-black/60 text-white border-white/10' : 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700'
+                isImmersive ? 'bg-black/40 hover:bg-black/60 text-white border-white/10 border' : 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700'
               }`}
             >
               <Settings className="w-5 h-5" />
@@ -178,19 +274,27 @@ export default function App() {
         </div>
       </div>
 
-      <div className={`absolute left-0 right-0 z-40 px-4 max-w-2xl mx-auto transition-all duration-500 ${showBrief && isImmersive ? 'top-24 opacity-100 pointer-events-auto' : 'top-24 opacity-0 pointer-events-none scale-95'}`}>
-        <DailyBriefCard items={displayedItems} narrateLang={narrateLang} />
-        {isImmersive && showBrief && (
-          <button onClick={() => setShowBrief(false)} className="mt-4 w-full py-3 bg-black/50 backdrop-blur-md rounded-2xl text-white font-bold border border-white/10">
-            {t("nav.closeBrief")}
-          </button>
-        )}
-      </div>
+      {/* Full News Brief Overlay Modal */}
+      <DailyBriefCard
+        items={displayedItems}
+        narrateLang={narrateLang}
+        isOpen={showBrief}
+        onClose={() => setShowBrief(false)}
+        showBanner={false}
+      />
 
       <div className={`h-full w-full`}>
         {displayedItems.length ? (
           isImmersive ? (
-            <RaadhavalhiFeedScroll items={displayedItems} narrateLang={narrateLang} onOpen={openReader} onSave={toggleSave} onOpenBrief={() => setShowBrief(!showBrief)} />
+            <RaadhavalhiFeedScroll
+              items={displayedItems}
+              narrateLang={narrateLang}
+              onOpen={openReader}
+              onSave={toggleSave}
+              onOpenBrief={() => setShowBrief(!showBrief)}
+              onOpenFilter={() => setIsFilterOpen(true)}
+              hasActiveFilters={hasActiveFilters}
+            />
           ) : (
             <MagazineFeedScroll 
               items={displayedItems} 
@@ -200,14 +304,34 @@ export default function App() {
             />
           )
         ) : (
-          <div className="h-[100dvh] flex items-center justify-center text-center px-8">
-            <div className="animate-pulse">
-              <RefreshCw className="w-12 h-12 mx-auto mb-4 text-amber-500 animate-spin" />
-              <p className="text-xl font-bold">{t("nav.loading")}</p>
+          <div className="h-[100dvh] flex items-center justify-center text-center px-8 flex-col gap-4">
+            <div className="p-4 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500">
+              <SlidersHorizontal className="w-8 h-8" />
             </div>
+            <div>
+              <p className="text-lg font-bold">No articles found matching filters</p>
+              <p className="text-sm text-neutral-400 mt-1">Try resetting your date, topic, or source filter settings.</p>
+            </div>
+            <button
+              onClick={() => setFilterOptions(DEFAULT_FILTER_OPTIONS)}
+              className="px-4 py-2 bg-amber-500 text-black font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md"
+            >
+              Reset Filters
+            </button>
           </div>
         )}
       </div>
+
+      <FilterModal
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        options={filterOptions}
+        onChangeOptions={setFilterOptions}
+        availableSources={availableSources}
+        availableTopics={availableTopics}
+        totalItemCount={items.length}
+        filteredItemCount={displayedItems.length}
+      />
 
       <FeedReader item={selected} narrateLang={narrateLang} onClose={() => setSelected(null)} />
     </div>

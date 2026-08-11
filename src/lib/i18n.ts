@@ -35,7 +35,7 @@ const en: Dict = {
   "common.source": "Source",
   "setup.easy": "Setup is easy",
   "nav.immersive": "Immersive",
-  "nav.magazine": "Magazine",
+  "nav.magazine": "Paper",
   "nav.closeBrief": "Close Brief",
   "nav.loading": "Loading feeds...",
 };
@@ -65,7 +65,7 @@ const dv: Dict = {
   "common.source": "ސޯސް",
   "setup.easy": "ސެޓްއަޕް ފަސޭހަ",
   "nav.immersive": "އިމަރސިވް",
-  "nav.magazine": "މެގަޒިން",
+  "nav.magazine": "ނޫސް",
   "nav.closeBrief": "ބްރީފް ލައްޕާލާ",
   "nav.loading": "ޚަބަރުތައް ލޯޑްވަނީ...",
 };

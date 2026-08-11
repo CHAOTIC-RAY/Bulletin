@@ -4,10 +4,14 @@ import { buildDailyBrief, BriefArticleInput } from "../lib/generateNewsBrief";
 import { RaadhavalhiTts } from "../lib/ttsPlayer";
 import { t, getLocale } from "../lib/i18n";
 import { createPortal } from "react-dom";
+import { ArrowLeft, Volume2, VolumeX } from "lucide-react";
 
 interface Props {
   items: FeedItem[];
   narrateLang: string; // e.g. "en-US" or "dv-MV"
+  isOpen?: boolean;
+  onClose?: () => void;
+  showBanner?: boolean;
 }
 
 function dayKey(ts: number): string {
@@ -15,7 +19,7 @@ function dayKey(ts: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export default function DailyBriefCard({ items, narrateLang }: Props) {
+export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, showBanner = true }: Props) {
   const locale = getLocale();
   const brief = useMemo(() => {
     const today = Date.now();
@@ -29,8 +33,15 @@ export default function DailyBriefCard({ items, narrateLang }: Props) {
 
   const ttsRef = useRef<RaadhavalhiTts | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [subtitle, setSubtitle] = useState("");
+
+  const isModalOpen = Boolean(isOpen ?? internalOpen);
+
+  const handleClose = () => {
+    setInternalOpen(false);
+    onClose?.();
+  };
 
   if (!brief) return null;
   const storyCount = brief.sections.reduce((a, s) => a + s.items.length, 0);
@@ -69,27 +80,44 @@ export default function DailyBriefCard({ items, narrateLang }: Props) {
 
   const isRtl = locale === "dv";
 
-  const overlay = open
+  const overlay = isModalOpen
     ? createPortal(
         <div dir={isRtl ? "rtl" : "ltr"} className={`fixed inset-0 z-[9999] bg-neutral-950 text-white flex flex-col ${isRtl ? "font-thaana text-right" : ""}`} style={{ height: "100dvh" }}>
-          <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <button onClick={() => setOpen(false)} className="p-2 rounded-full bg-white/10">←</button>
-            <span className="text-[10px] font-bold uppercase tracking-widest">{t("brief.title")}</span>
-            <button onClick={toggleListen} className="px-3 py-1.5 rounded-full bg-amber-500 text-black text-xs font-bold">
-              {playing ? t("brief.stop") : t("brief.listen")}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-neutral-900/80 backdrop-blur-md">
+            <button
+              onClick={handleClose}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center"
+              title="Close Brief"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <span className="text-xs font-bold uppercase tracking-widest text-amber-400">⚡ {t("brief.title")}</span>
+            <button
+              onClick={toggleListen}
+              className={`px-4 py-2 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition-colors ${
+                playing ? "bg-red-500 text-white" : "bg-amber-500 hover:bg-amber-400 text-black"
+              }`}
+            >
+              {playing ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              <span>{playing ? t("brief.stop") : t("brief.listen")}</span>
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            <p className="text-lg font-bold leading-relaxed">{brief.lead}</p>
+          <div className="flex-1 overflow-y-auto p-5 md:p-8 max-w-3xl mx-auto w-full space-y-6 scrollbar-none">
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200">
+              <p className="text-sm font-semibold leading-relaxed">{brief.lead}</p>
+            </div>
             {brief.sections.map((s) => (
-              <section key={s.source} className="space-y-2">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-amber-400">{s.source}</h3>
-                <p className="text-xs text-neutral-400">{s.intro}</p>
-                <ul className="space-y-2">
+              <section key={s.source} className="space-y-3">
+                <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+                  <h3 className="text-xs font-extrabold uppercase tracking-widest text-amber-400">{s.source}</h3>
+                  <span className="text-[10px] font-mono text-neutral-400">{s.items.length} stories</span>
+                </div>
+                <p className="text-xs text-neutral-400 italic">{s.intro}</p>
+                <ul className="space-y-3">
                   {s.items.map((it) => (
-                    <li key={it.id} className="border border-white/10 rounded-xl p-3">
-                      <p className="font-bold leading-snug">{it.headline}</p>
-                      <p className="text-sm text-neutral-300 mt-1 leading-relaxed">{it.detail}</p>
+                    <li key={it.id} className="border border-white/10 bg-neutral-900/60 rounded-2xl p-4 space-y-1 hover:border-amber-500/30 transition-colors">
+                      <p className="font-bold text-sm text-white leading-snug">{it.headline}</p>
+                      <p className="text-xs text-neutral-300 leading-relaxed">{it.detail}</p>
                     </li>
                   ))}
                 </ul>
@@ -97,7 +125,9 @@ export default function DailyBriefCard({ items, narrateLang }: Props) {
             ))}
           </div>
           {playing && (
-            <div className="p-4 border-t border-white/10 text-center text-sm text-amber-300 italic">{subtitle}</div>
+            <div className="p-4 border-t border-white/10 bg-neutral-900/90 text-center text-xs font-mono text-amber-300 italic">
+              {subtitle || "Listening to News Brief..."}
+            </div>
           )}
         </div>,
         document.body
@@ -106,22 +136,24 @@ export default function DailyBriefCard({ items, narrateLang }: Props) {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        dir={isRtl ? "rtl" : "ltr"}
-        className={`w-full text-left bg-neutral-900 border border-white/10 rounded-2xl p-4 hover:border-amber-400/40 transition ${isRtl ? "font-thaana text-right" : ""}`}
-      >
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400">⚡ {t("brief.title")}</span>
+      {showBanner && (
+        <button
+          onClick={() => setInternalOpen(true)}
+          dir={isRtl ? "rtl" : "ltr"}
+          className={`w-full text-left bg-neutral-900 border border-white/10 rounded-2xl p-4 hover:border-amber-400/40 transition ${isRtl ? "font-thaana text-right" : ""}`}
+        >
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400">⚡ {t("brief.title")}</span>
+            </div>
+            <span className="text-[10px] font-mono text-neutral-500">
+              {storyCount} stories · {brief.sections.length} sources
+            </span>
           </div>
-          <span className="text-[10px] font-mono text-neutral-500">
-            {storyCount} stories · {brief.sections.length} sources
-          </span>
-        </div>
-        <h3 className="text-base font-bold text-white mb-1">{brief.lead.slice(0, 90)}…</h3>
-        <p className="text-[11px] text-neutral-500">Tap for full brief · {t("brief.listen")} available</p>
-      </button>
+          <h3 className="text-base font-bold text-white mb-1">{brief.lead.slice(0, 90)}…</h3>
+          <p className="text-[11px] text-neutral-500">Tap for full brief · {t("brief.listen")} available</p>
+        </button>
+      )}
       {overlay}
     </>
   );

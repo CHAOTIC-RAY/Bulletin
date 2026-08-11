@@ -22,6 +22,9 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
     day: "numeric",
   }).toUpperCase();
 
+  // SVG Noise Paper Texture Data URI
+  const noisePaperTexture = `data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E`;
+
   // Extract all available filter options from the items feed
   const categoriesList = useMemo(() => {
     const list: { id: string; label: string; count: number }[] = [];
@@ -104,35 +107,58 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
   }, [items, selectedCategory]);
 
   return (
-    <div className="h-[100dvh] w-full overflow-y-auto pt-20 pb-16 bg-[#f7f5f0] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 font-sans selection:bg-amber-500 selection:text-black">
-      <div className="w-full px-3 sm:px-6 md:px-8 lg:px-12">
+    <div className="relative min-h-[100dvh] h-[100dvh] w-full overflow-y-auto pt-20 pb-16 bg-[#f2eee3] dark:bg-[#131210] text-neutral-900 dark:text-neutral-100 font-sans selection:bg-amber-500 selection:text-black">
+      {/* Paper texture grain overlay */}
+      <div
+        className="pointer-events-none fixed inset-0 z-10 opacity-70 dark:opacity-30 mix-blend-multiply dark:mix-blend-overlay"
+        style={{ backgroundImage: `url("${noisePaperTexture}")` }}
+      />
+
+      <div className="relative z-20 w-full px-3 sm:px-6 md:px-8 lg:px-12">
         
         {headerContent && <div className="mb-6">{headerContent}</div>}
 
         {/* --- CLASSIC NEWSPAPER MASTHEAD --- */}
-        <header className="text-center pt-2 pb-6 mb-8 border-b-2 border-neutral-900 dark:border-neutral-100">
+        <header className="text-center pt-2 pb-6 mb-8 border-b-4 border-double border-neutral-950 dark:border-neutral-200">
           {/* Top Issue Bar */}
-          <div className="flex items-center justify-between border-b border-t border-neutral-900/40 dark:border-white/30 py-1 px-2 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-widest text-neutral-700 dark:text-neutral-300 mb-4">
+          <div className="flex items-center justify-between border-b-2 border-t-2 border-neutral-950 dark:border-neutral-200 py-1.5 px-3 text-[10px] sm:text-xs font-mono font-bold uppercase tracking-widest text-neutral-800 dark:text-neutral-200 mb-4 bg-black/5 dark:bg-white/5">
             <span>VOL. CLXXIV NO. 61,420</span>
-            <span className="hidden sm:inline">ALL THE NEWS THAT'S FIT TO READ</span>
+            <span className="hidden sm:inline font-serif italic text-amber-900 dark:text-amber-400 font-extrabold">"ALL THE NEWS THAT'S FIT TO READ"</span>
             <span>{todayStr}</span>
           </div>
 
-          {/* Newspaper Nameplate */}
-          <div className="py-2">
-            <h1 className="font-serif font-black tracking-tight text-4xl sm:text-6xl md:text-7xl lg:text-8xl uppercase text-neutral-950 dark:text-white drop-shadow-sm">
-              The Raadhavalhi Gazette
-            </h1>
-            <p className="text-xs sm:text-sm font-serif italic text-neutral-600 dark:text-neutral-400 mt-1">
-              International Broadsheet • Daily Independent News & Intel
-            </p>
+          {/* Newspaper Nameplate with Ear Callouts */}
+          <div className="py-2 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            {/* Left Ear */}
+            <div className="hidden md:block md:col-span-3 text-left border-r border-neutral-900/30 dark:border-neutral-100/30 pr-3 font-serif">
+              <span className="text-[10px] font-mono uppercase font-black tracking-wider text-amber-800 dark:text-amber-400 block mb-0.5">MALÉ WEATHER</span>
+              <p className="text-xs text-neutral-700 dark:text-neutral-300 font-bold">29°C Fair • Wind 12kt WSW</p>
+              <p className="text-[10px] italic text-neutral-500 dark:text-neutral-400">High tide 14:20 • Sunset 18:18</p>
+            </div>
+
+            {/* Main Nameplate */}
+            <div className="md:col-span-6 text-center">
+              <h1 className="font-serif font-black tracking-tight text-4xl sm:text-6xl md:text-6xl lg:text-7xl uppercase text-neutral-950 dark:text-white drop-shadow-sm border-b-2 border-neutral-900/20 dark:border-neutral-100/20 pb-2">
+                The Raadhavalhi Gazette
+              </h1>
+              <p className="text-xs sm:text-sm font-serif italic text-neutral-700 dark:text-neutral-300 font-medium mt-1.5">
+                International Broadsheet • Daily Independent News & Global Intel
+              </p>
+            </div>
+
+            {/* Right Ear */}
+            <div className="hidden md:block md:col-span-3 text-right border-l border-neutral-900/30 dark:border-neutral-100/30 pl-3 font-serif">
+              <span className="text-[10px] font-mono uppercase font-black tracking-wider text-amber-800 dark:text-amber-400 block mb-0.5">DAILY EDITION</span>
+              <p className="text-xs text-neutral-700 dark:text-neutral-300 font-bold">Price: Free Broadsheet</p>
+              <p className="text-[10px] italic text-neutral-500 dark:text-neutral-400">Published live via Neural RSS</p>
+            </div>
           </div>
 
           {/* Bottom Rule with Interactive Section Category Filters */}
-          <div className="border-t-2 border-b border-neutral-900 dark:border-neutral-100 py-2 mt-3">
+          <div className="border-t-2 border-b-2 border-neutral-950 dark:border-neutral-200 py-2 mt-4 bg-amber-950/5 dark:bg-amber-100/5">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 px-1">
-              <span className="text-[10px] font-mono font-black uppercase text-neutral-400 dark:text-neutral-500 shrink-0 mr-1 flex items-center gap-1">
-                <Filter className="w-3 h-3 text-amber-600 dark:text-amber-400" /> SECTIONS:
+              <span className="text-[10px] font-mono font-black uppercase text-neutral-600 dark:text-neutral-400 shrink-0 mr-1 flex items-center gap-1">
+                <Filter className="w-3 h-3 text-amber-700 dark:text-amber-400" /> SECTIONS:
               </span>
               {categoriesList.map((cat) => {
                 const isActive = selectedCategory === cat.id;
@@ -140,10 +166,10 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`whitespace-nowrap px-3 py-1 text-xs font-mono font-bold tracking-wider transition-all duration-200 shrink-0 border ${
+                    className={`whitespace-nowrap px-3 py-1 text-xs font-mono font-bold tracking-wider transition-all duration-200 shrink-0 border-2 ${
                       isActive
-                        ? "bg-amber-500 text-black border-amber-600 shadow-sm font-extrabold scale-105"
-                        : "bg-white/60 dark:bg-neutral-900/60 text-neutral-800 dark:text-neutral-200 border-neutral-300 dark:border-neutral-700 hover:border-amber-500 hover:text-amber-700 dark:hover:text-amber-400"
+                        ? "bg-amber-500 text-black border-neutral-950 shadow-[2px_2px_0px_rgba(0,0,0,1)] font-black scale-105"
+                        : "bg-[#faf7ee] dark:bg-[#1a1815] text-neutral-800 dark:text-neutral-200 border-neutral-800 dark:border-neutral-700 hover:border-amber-600 hover:text-amber-800 dark:hover:text-amber-400"
                     }`}
                   >
                     {cat.label}
@@ -159,17 +185,17 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
 
         {/* Empty state if category filter has no articles */}
         {filteredItems.length === 0 ? (
-          <div className="text-center py-20 border border-dashed border-neutral-400 dark:border-neutral-800 p-8 my-8 bg-white dark:bg-neutral-900">
-            <Newspaper className="w-12 h-12 mx-auto text-neutral-400 mb-4" />
-            <h3 className="font-serif font-black text-2xl uppercase text-neutral-900 dark:text-white mb-2">
+          <div className="text-center py-20 border-2 border-dashed border-neutral-950 dark:border-neutral-700 p-8 my-8 bg-[#faf7ef] dark:bg-[#1a1815]">
+            <Newspaper className="w-12 h-12 mx-auto text-neutral-500 mb-4" />
+            <h3 className="font-serif font-black text-2xl uppercase text-neutral-950 dark:text-white mb-2">
               No Dispatches In This Section
             </h3>
-            <p className="text-sm font-serif text-neutral-600 dark:text-neutral-400 mb-6">
+            <p className="text-sm font-serif text-neutral-700 dark:text-neutral-300 mb-6">
               There are currently no active stories matching the selected category.
             </p>
             <button
               onClick={() => setSelectedCategory("ALL")}
-              className="px-5 py-2 bg-amber-500 text-black font-bold uppercase font-mono text-xs tracking-wider border border-black hover:bg-amber-400 transition-colors"
+              className="px-5 py-2 bg-amber-500 text-black font-bold uppercase font-mono text-xs tracking-wider border-2 border-neutral-950 hover:bg-amber-400 transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)]"
             >
               Return to Front Page
             </button>
@@ -253,17 +279,17 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
                 <article
                   key={item.id}
                   onClick={() => onOpen(item)}
-                  className={`group cursor-pointer bg-white dark:bg-neutral-900 border ${
+                  className={`group cursor-pointer bg-[#faf6ec] dark:bg-[#1a1815] border-2 ${
                     isSpecial 
-                      ? "border-amber-500 dark:border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.05)]" 
-                      : "border-neutral-300 dark:border-neutral-800"
-                  } p-5 sm:p-6 shadow-[2px_2px_0px_rgba(0,0,0,0.08)] dark:shadow-[2px_2px_0px_rgba(255,255,255,0.05)] hover:border-amber-600 dark:hover:border-amber-500 hover:shadow-lg transition-all duration-300 flex flex-col ${colSpan}`}
+                      ? "border-amber-600 dark:border-amber-500 shadow-[4px_4px_0px_rgba(217,119,6,0.3)]" 
+                      : "border-neutral-900 dark:border-neutral-700 shadow-[3px_3px_0px_rgba(0,0,0,0.15)] dark:shadow-[3px_3px_0px_rgba(255,255,255,0.08)]"
+                  } p-5 sm:p-6 hover:border-amber-700 dark:hover:border-amber-400 hover:shadow-[5px_5px_0px_rgba(0,0,0,0.25)] transition-all duration-200 flex flex-col ${colSpan}`}
                 >
                   {/* Article Top Tagline & Date */}
-                  <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-2 mb-3">
+                  <div className="flex items-center justify-between border-b-2 border-neutral-900 dark:border-neutral-700 pb-2 mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono font-extrabold uppercase tracking-widest text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
-                        {isHero ? "FRONT PAGE DISPATCH" : isSpecial ? "SPECIAL DISPATCH" : item.subscriptionTitle}
+                      <span className="text-[10px] font-mono font-black uppercase tracking-widest text-amber-900 dark:text-amber-400 bg-amber-500/15 border border-amber-600/30 px-2 py-0.5 rounded-none">
+                        {isHero ? "★ FRONT PAGE DISPATCH" : isSpecial ? "SPECIAL REPORT" : item.subscriptionTitle}
                       </span>
                     </div>
 
@@ -272,11 +298,11 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
                         e.stopPropagation();
                         onSave(item);
                       }}
-                      className="text-neutral-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors p-1"
+                      className="text-neutral-500 hover:text-amber-700 dark:hover:text-amber-400 transition-colors p-1"
                       title="Bookmark Article"
                     >
                       {item.saved ? (
-                        <BookmarkCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 fill-amber-500/20" />
+                        <BookmarkCheck className="w-4 h-4 text-amber-700 dark:text-amber-400 fill-amber-500/20" />
                       ) : (
                         <Bookmark className="w-4 h-4" />
                       )}
@@ -286,7 +312,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
                   {/* Horizontal container for FullWidth/Wide layout on medium screens */}
                   <div className={`flex-1 flex flex-col ${(isFullWidth || isWide) && item.imageUrl ? "md:grid md:grid-cols-12 md:gap-6" : ""}`}>
                     {item.imageUrl && (
-                      <div className={`overflow-hidden mb-4 p-1 bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-700 ${
+                      <div className={`overflow-hidden mb-4 p-1 bg-[#eae5d8] dark:bg-[#11100e] border-2 border-neutral-900 dark:border-neutral-700 ${
                         isFullWidth || isWide ? "md:col-span-5 md:mb-0" : ""
                       } ${isHero ? "aspect-[16/9]" : isSpecial ? "aspect-[21/9]" : "aspect-[16/10]"}`}>
                         <div className="w-full h-full overflow-hidden relative">
@@ -295,9 +321,9 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
                             alt=""
                             loading="lazy"
                             referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter grayscale-[15%] group-hover:grayscale-0"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter sepia-[15%] contrast-[105%] group-hover:sepia-0"
                           />
-                          <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-md text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute bottom-2 right-2 bg-black/80 text-white p-1 rounded-none border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity">
                             <ArrowUpRight className="w-4 h-4" />
                           </div>
                         </div>
@@ -309,18 +335,18 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
                       {/* Headline */}
                       <h2
                         dir={dir}
-                        className={`font-serif font-black leading-tight text-neutral-950 dark:text-white group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors mb-3 ${titleClass} ${dir === "rtl" ? "font-thaana" : ""}`}
+                        className={`font-serif font-black leading-snug text-neutral-950 dark:text-neutral-50 group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors mb-3 ${titleClass} ${dir === "rtl" ? "font-thaana" : ""}`}
                       >
                         {item.title}
                       </h2>
 
                       {/* Article Dateline & Summary with Drop Cap for Hero */}
                       {item.summary && (
-                        <div dir={dir} className={`text-neutral-700 dark:text-neutral-300 leading-relaxed ${summaryClass} mb-4 ${dir === "rtl" ? "font-thaana text-right" : "font-serif"}`}>
+                        <div dir={dir} className={`text-neutral-800 dark:text-neutral-300 leading-relaxed ${summaryClass} mb-4 ${dir === "rtl" ? "font-thaana text-right" : "font-serif"}`}>
                           {isHero ? (
                             <p className={dir === "rtl" ? "" : "first-letter:float-left first-letter:text-5xl first-letter:font-serif first-letter:font-black first-letter:mr-3 first-letter:leading-none first-letter:text-neutral-950 dark:first-letter:text-white"}>
                               {dir !== "rtl" && (
-                                <strong className="font-sans font-bold text-xs uppercase tracking-wider text-amber-700 dark:text-amber-400 mr-2">
+                                <strong className="font-sans font-bold text-xs uppercase tracking-wider text-amber-800 dark:text-amber-400 mr-2">
                                   [DISPATCH]
                                 </strong>
                               )}
@@ -335,10 +361,10 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
                   </div>
 
                   {/* Newspaper Footer Meta */}
-                  <div className="mt-auto pt-3 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px] font-mono text-neutral-500 dark:text-neutral-400">
+                  <div className="mt-auto pt-3 border-t border-dashed border-neutral-900/40 dark:border-neutral-700 flex items-center justify-between text-[11px] font-mono text-neutral-600 dark:text-neutral-400">
                     <span>{new Date(item.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                    <span className="flex items-center gap-1">
-                      <Newspaper className="w-3 h-3 text-neutral-400" />
+                    <span className="flex items-center gap-1 font-bold">
+                      <Newspaper className="w-3 h-3 text-amber-700 dark:text-amber-400" />
                       <span>{Math.max(1, Math.ceil((item.summary || "").length / 220))} min read</span>
                     </span>
                   </div>
@@ -349,11 +375,11 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
         )}
 
         {/* Bottom Broadsheet Footer */}
-        <footer className="mt-16 pt-8 border-t-2 border-b border-neutral-900 dark:border-neutral-100 text-center text-xs font-mono text-neutral-600 dark:text-neutral-400 space-y-2 pb-6">
-          <p className="font-serif font-bold uppercase tracking-widest text-neutral-900 dark:text-white text-sm">
-            End of Current Edition • Raadhavalhi Intelligence Feed
+        <footer className="mt-16 pt-8 border-t-4 border-double border-b-2 border-neutral-950 dark:border-neutral-200 text-center text-xs font-mono text-neutral-700 dark:text-neutral-400 space-y-2 pb-6">
+          <p className="font-serif font-black uppercase tracking-widest text-neutral-950 dark:text-white text-sm">
+            End of Current Edition • Raadhavalhi News Broadcaster
           </p>
-          <p>© 2026 Raadhavalhi News Chronicle. Real-time RSS & Neural Speech Aggregator.</p>
+          <p>© 2026 Raadhavalhi Gazette. Broadsheet Aggregator & Intelligence Feed.</p>
         </footer>
 
       </div>

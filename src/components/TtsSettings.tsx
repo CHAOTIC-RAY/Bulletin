@@ -6,7 +6,7 @@ import {
   downloadVoicePack,
   deleteVoicePack,
 } from "../lib/piperVoiceManager";
-import { getWebSpeechVoices } from "../lib/webSpeechEngine";
+import { getWebSpeechVoices, getSortedWebSpeechVoices, ScoredVoice, onVoicesReady } from "../lib/webSpeechEngine";
 import { POLLY_VOICES } from "../lib/pollyEngine";
 import { RaadhavalhiTts, TtsEngineType } from "../lib/ttsPlayer";
 import {
@@ -24,6 +24,7 @@ import {
   HardDrive,
   RefreshCw,
   Sliders,
+  UserCheck,
 } from "lucide-react";
 
 export default function TtsSettings() {
@@ -38,6 +39,12 @@ export default function TtsSettings() {
   const [pollyVoiceId, setPollyVoiceId] = useState<string>(() => {
     return localStorage.getItem("raadhavalhi_polly_voice") || "Matthew";
   });
+
+  const [webSpeechVoiceName, setWebSpeechVoiceName] = useState<string>(() => {
+    return localStorage.getItem("raadhavalhi_webspeech_voice") || "";
+  });
+
+  const [webSpeechVoicesList, setWebSpeechVoicesList] = useState<ScoredVoice[]>([]);
 
   const [autoScroll, setAutoScroll] = useState<boolean>(() => {
     return localStorage.getItem("raadhavalhi_auto_scroll") === "true";
@@ -71,7 +78,21 @@ export default function TtsSettings() {
 
   useEffect(() => {
     checkDownloadedStatus();
+    loadWebSpeechVoices();
+    const unsub = onVoicesReady(() => {
+      loadWebSpeechVoices();
+    });
+    return unsub;
   }, []);
+
+  const loadWebSpeechVoices = () => {
+    const lang = localStorage.getItem("raadhavalhi_narrate_lang") || "en-US";
+    const sorted = getSortedWebSpeechVoices(lang);
+    setWebSpeechVoicesList(sorted);
+    if (!webSpeechVoiceName && sorted.length > 0) {
+      setWebSpeechVoiceName(sorted[0].voice.name);
+    }
+  };
 
   const checkDownloadedStatus = async () => {
     const map: Record<string, boolean> = {};
@@ -85,6 +106,18 @@ export default function TtsSettings() {
     setEngine(eType);
     localStorage.setItem("raadhavalhi_tts_engine", eType);
     ttsPlayer.setEngine(eType, piperVoice, localStorage.getItem("raadhavalhi_narrate_lang") || "en-US");
+  };
+
+  const handleSelectWebSpeechVoice = (voiceName: string) => {
+    setWebSpeechVoiceName(voiceName);
+    localStorage.setItem("raadhavalhi_webspeech_voice", voiceName);
+    ttsPlayer.setVoice(
+      localStorage.getItem("raadhavalhi_narrate_lang") || "en-US",
+      voiceName,
+      rate,
+      pitch,
+      volume
+    );
   };
 
   const handleSelectPiper = (packId: string) => {
@@ -103,15 +136,25 @@ export default function TtsSettings() {
   const handleRateChange = (newRate: number) => {
     setRate(newRate);
     localStorage.setItem("raadhavalhi_tts_rate", String(newRate));
-    // Trigger setVoice so it updates live
-    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", newRate, pitch, volume);
+    ttsPlayer.setVoice(
+      localStorage.getItem("raadhavalhi_narrate_lang") || "en-US",
+      webSpeechVoiceName,
+      newRate,
+      pitch,
+      volume
+    );
   };
 
   const handlePitchChange = (newPitch: number) => {
     setPitch(newPitch);
     localStorage.setItem("raadhavalhi_tts_pitch", String(newPitch));
-    // Trigger setVoice so it updates live
-    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", rate, newPitch, volume);
+    ttsPlayer.setVoice(
+      localStorage.getItem("raadhavalhi_narrate_lang") || "en-US",
+      webSpeechVoiceName,
+      rate,
+      newPitch,
+      volume
+    );
   };
 
   const handleVolumeChange = (newVol: number) => {
@@ -152,7 +195,12 @@ export default function TtsSettings() {
     }
   };
 
-  const handleTestVoice = async (packId?: string, _edgeId?: string, pollyId?: string) => {
+  const handleTestVoice = async (
+    packId?: string,
+    _edgeId?: string,
+    pollyId?: string,
+    customWebSpeechVoice?: string
+  ) => {
     if (isPlayingTest) {
       ttsPlayer.stop();
       setIsPlayingTest(false);
@@ -161,16 +209,18 @@ export default function TtsSettings() {
     }
 
     const testText =
-      "Hello! Welcome to Raadhavalhi News. This is a live preview of your chosen neural speech voice.";
+      "Hello! Welcome to Raadhavalhi News. This is a live preview of your chosen speech voice.";
 
     const testEngine = packId ? "piper" : pollyId ? "polly" : engine;
     const testPiper = packId || piperVoice;
     if (pollyId) ttsPlayer.setPolly(pollyId, "neural");
 
+    const targetVoice = customWebSpeechVoice || webSpeechVoiceName;
+
     ttsPlayer.setCallbacks({
       onPlay: () => {
         setIsPlayingTest(true);
-        setActiveTestPack(packId || pollyId || "current");
+        setActiveTestPack(packId || pollyId || customWebSpeechVoice || "current");
       },
       onEnded: () => {
         setIsPlayingTest(false);
@@ -183,103 +233,236 @@ export default function TtsSettings() {
       },
     });
 
-    // Make sure rate and pitch are applied before test
     ttsPlayer.setEngine(testEngine, testPiper, localStorage.getItem("raadhavalhi_narrate_lang") || "en-US");
-    ttsPlayer.setVoice(localStorage.getItem("raadhavalhi_narrate_lang") || "en-US", "", rate, pitch, volume);
+    ttsPlayer.setVoice(
+      localStorage.getItem("raadhavalhi_narrate_lang") || "en-US",
+      targetVoice,
+      rate,
+      pitch,
+      volume
+    );
     await ttsPlayer.play(testText);
   };
 
   return (
-    <div className="space-y-8 py-2">
-      {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b border-white/10">
-        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
-          <Mic className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-xl font-extrabold text-white">TTS Engine & Voice Packs</h2>
-          <p className="text-xs text-neutral-400">
-            Browser WebSpeech (free, no download) or optional Piper local models.
-          </p>
-        </div>
-      </div>
-
-      {/* Engine Selection */}
-      <div className="space-y-3">
-        <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-          Select Active TTS Engine
-        </label>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* WebSpeech Engine (default, free) */}
-          <div
+    <div className="space-y-6 py-1">
+      {/* Engine Selection Group */}
+      <div className="space-y-2">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-400 px-1">
+          Active Text-To-Speech Engine
+        </h2>
+        <div className="rounded-2xl bg-neutral-900 border border-white/10 overflow-hidden divide-y divide-white/10">
+          {/* WebSpeech Engine */}
+          <button
+            type="button"
             onClick={() => handleSelectEngine("webspeech")}
-            className={`p-4 rounded-2xl border transition-all cursor-pointer relative ${
-              engine === "webspeech"
-                ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10"
-                : "border-white/10 bg-white/5 hover:bg-white/10"
-            }`}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 active:bg-white/10 transition-colors"
           >
-            <div className="flex items-center justify-between mb-2">
-              <Globe className={`w-5 h-5 ${engine === "webspeech" ? "text-amber-400" : "text-neutral-400"}`} />
-              {engine === "webspeech" && (
-                <span className="text-[10px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
-                  ACTIVE
-                </span>
-              )}
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white">Browser System WebSpeech</span>
+                  {engine === "webspeech" && (
+                    <span className="text-[9px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
+                      ACTIVE
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-neutral-400 truncate mt-0.5">
+                  Free built-in voices. Zero download required.
+                </p>
+              </div>
             </div>
-            <div className="font-bold text-white text-sm">Browser WebSpeech</div>
-            <div className="text-xs text-neutral-400 mt-1">
-              Free built-in system voices. Zero download, zero API key — works on every device.
-            </div>
-          </div>
+            {engine === "webspeech" ? (
+              <div className="w-6 h-6 rounded-full bg-amber-500 text-black flex items-center justify-center shrink-0">
+                <Check className="w-4 h-4 stroke-[3]" />
+              </div>
+            ) : (
+              <div className="w-6 h-6 rounded-full border border-white/20 shrink-0" />
+            )}
+          </button>
 
-          {/* Polly Engine */}
-          <div
+          {/* AWS Polly */}
+          <button
+            type="button"
             onClick={() => handleSelectEngine("polly")}
-            className={`p-4 rounded-2xl border transition-all cursor-pointer relative ${
-              engine === "polly"
-                ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10"
-                : "border-white/10 bg-white/5 hover:bg-white/10"
-            }`}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 active:bg-white/10 transition-colors"
           >
-            <div className="flex items-center justify-between mb-2">
-              <Cloud className="w-5 h-5 text-amber-400" />
-              {engine === "polly" && (
-                <span className="text-[10px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
-                  ACTIVE
-                </span>
-              )}
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <Cloud className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white">AWS Polly (Cloud Neural)</span>
+                  {engine === "polly" && (
+                    <span className="text-[9px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
+                      ACTIVE
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-neutral-400 truncate mt-0.5">
+                  Studio-quality neural voices (needs AWS keys).
+                </p>
+              </div>
             </div>
-            <div className="font-bold text-white text-sm">AWS Polly (Cloud)</div>
-            <div className="text-xs text-neutral-400 mt-1">
-              Studio-quality neural voices. Needs AWS keys (free tier). Best quality.
-            </div>
-          </div>
+            {engine === "polly" ? (
+              <div className="w-6 h-6 rounded-full bg-amber-500 text-black flex items-center justify-center shrink-0">
+                <Check className="w-4 h-4 stroke-[3]" />
+              </div>
+            ) : (
+              <div className="w-6 h-6 rounded-full border border-white/20 shrink-0" />
+            )}
+          </button>
 
           {/* Piper Engine */}
-          <div
+          <button
+            type="button"
             onClick={() => handleSelectEngine("piper")}
-            className={`p-4 rounded-2xl border transition-all cursor-pointer relative ${
-              engine === "piper"
-                ? "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10"
-                : "border-white/10 bg-white/5 hover:bg-white/10"
-            }`}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 active:bg-white/10 transition-colors"
           >
-            <div className="flex items-center justify-between mb-2">
-              <Cpu className="w-5 h-5 text-amber-400" />
-              {engine === "piper" && (
-                <span className="text-[10px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
-                  ACTIVE
-                </span>
-              )}
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <Cpu className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white">Piper TTS (Local Offline)</span>
+                  {engine === "piper" && (
+                    <span className="text-[9px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
+                      ACTIVE
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-neutral-400 truncate mt-0.5">
+                  Local WASM neural model (~114 MB download).
+                </p>
+              </div>
             </div>
-            <div className="font-bold text-white text-sm">Piper TTS (WASM)</div>
-            <div className="text-xs text-neutral-400 mt-1">
-              Local neural models (Ryan High, LJSpeech High). Offline ready — ~114 MB download.
-            </div>
-          </div>
+            {engine === "piper" ? (
+              <div className="w-6 h-6 rounded-full bg-amber-500 text-black flex items-center justify-center shrink-0">
+                <Check className="w-4 h-4 stroke-[3]" />
+              </div>
+            ) : (
+              <div className="w-6 h-6 rounded-full border border-white/20 shrink-0" />
+            )}
+          </button>
         </div>
       </div>
+
+      {/* WEBSPEECH SYSTEM VOICES SECTION */}
+      {engine === "webspeech" && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-amber-400" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400">
+                Browser System Voices
+              </h3>
+            </div>
+            <span className="text-xs text-neutral-400">
+              {webSpeechVoicesList.length} voices detected on your device
+            </span>
+          </div>
+
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-200/90 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Pro Tip:</strong> Voices labeled <span className="text-amber-400 font-bold">✨ NEURAL / NATURAL</span> (like Microsoft Edge Online Natural, Google Wavenet, or Apple Enhanced Siri) sound substantially more human and less robotic.
+            </span>
+          </div>
+
+          {/* Quick Voice Dropdown Selector */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+              Quick Voice Select
+            </label>
+            <select
+              value={webSpeechVoiceName}
+              onChange={(e) => handleSelectWebSpeechVoice(e.target.value)}
+              className="w-full bg-neutral-900 text-white text-sm rounded-xl px-4 py-3 border border-white/10 focus:border-amber-500 focus:outline-none"
+            >
+              <option value="">-- Default Best Voice --</option>
+              {webSpeechVoicesList.map((sv) => (
+                <option key={sv.voice.name} value={sv.voice.name}>
+                  {sv.isNatural ? "✨ " : ""}{sv.voice.name} ({sv.voice.lang || "en"})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Top Voices Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
+            {webSpeechVoicesList.slice(0, 16).map((sv) => {
+              const isSelected = webSpeechVoiceName === sv.voice.name;
+              const isTestingThis = isPlayingTest && activeTestPack === sv.voice.name;
+
+              return (
+                <div
+                  key={sv.voice.name}
+                  onClick={() => handleSelectWebSpeechVoice(sv.voice.name)}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    isSelected
+                      ? "border-amber-500 bg-amber-500/10 shadow-md"
+                      : "border-white/10 bg-white/5 hover:bg-white/10"
+                  }`}
+                >
+                  <div className="space-y-1 min-w-0 pr-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-white text-sm truncate">{sv.voice.name}</span>
+                      {sv.isNatural && (
+                        <span className="text-[9px] uppercase font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-full shrink-0">
+                          ✨ Natural
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-neutral-400 flex items-center gap-2">
+                      <span className="font-mono bg-white/10 px-1.5 py-0.5 rounded text-[10px]">
+                        {sv.voice.lang || "en-US"}
+                      </span>
+                      {sv.voice.localService ? <span>Local Engine</span> : <span>Network Neural</span>}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectWebSpeechVoice(sv.voice.name);
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-colors ${
+                        isSelected
+                          ? "bg-amber-500 text-black"
+                          : "bg-white/10 text-white hover:bg-white/20"
+                      }`}
+                    >
+                      {isSelected ? "Selected" : "Select"}
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTestVoice(undefined, undefined, undefined, sv.voice.name);
+                      }}
+                      className="p-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors"
+                      title="Preview this voice"
+                    >
+                      {isTestingThis ? (
+                        <Square className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* PIPER VOICE PACKS SECTION */}
       {engine === "piper" && (

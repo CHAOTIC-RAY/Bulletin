@@ -7,7 +7,7 @@
 // removed: Microsoft killed that endpoint (401/403), so it only ever 502'd.
 
 import { synthesizePiperAudio, PIPER_VOICE_PACKS } from "./piperVoiceManager";
-import { getWebSpeechVoices, pickVoice } from "./webSpeechEngine";
+import { getWebSpeechVoices, pickVoice, prepareTextForNaturalSpeech } from "./webSpeechEngine";
 import { synthesizePolly } from "./pollyEngine";
 
 export type TtsEngineType = "webspeech" | "piper" | "polly";
@@ -21,7 +21,7 @@ export interface TtsCallbacks {
 }
 
 function splitSentences(text: string): string[] {
-  return (text.match(/[^.!?…]+[.!?…]+|[^.!?…]+$/g) || [text]).map((s) => s.trim()).filter(Boolean);
+  return prepareTextForNaturalSpeech(text);
 }
 
 export class RaadhavalhiTts {

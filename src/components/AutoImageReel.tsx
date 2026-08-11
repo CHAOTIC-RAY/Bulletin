@@ -55,8 +55,12 @@ export default function AutoImageReel({ images, intervalMs = 3500, className = "
             alt=""
             referrerPolicy="no-referrer"
             loading={i === 0 ? "eager" : "lazy"}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${
-              showReel ? (i === index ? "opacity-100" : "opacity-0") : "opacity-100"
+            className={`absolute inset-0 w-full h-full object-cover transition-all duration-1000 ease-in-out ${
+              showReel
+                ? i === index
+                  ? "opacity-100 scale-105 z-10"
+                  : "opacity-0 scale-100 z-0"
+                : "opacity-100 scale-100 z-10"
             } ${grayscale ? "grayscale" : ""}`}
           />
         ))

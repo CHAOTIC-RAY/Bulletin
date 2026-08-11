@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "PollyCache": {
+      "title": "PollyCache",
+      "description": "Cached synthetic audio generated via AWS Polly, indexed by text hash.",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The synthesized news text",
+          "maxLength": 10000
+        },
+        "voiceId": {
+          "type": "string",
+          "description": "AWS Polly Voice Identifier",
+          "maxLength": 64
+        },
+        "engine": {
+          "type": "string",
+          "description": "AWS Polly Engine (neural or standard)",
+          "maxLength": 32
+        },
+        "rate": {
+          "type": "number",
+          "description": "The playback speed rate factor"
+        },
+        "size": {
+          "type": "integer",
+          "description": "The size of the audio in bytes"
+        },
+        "hits": {
+          "type": "integer",
+          "description": "The number of read requests served from this cache document"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when this cache document was created"
+        },
+        "audioB64": {
+          "type": "string",
+          "description": "Base64-encoded audio MP3 data",
+          "maxLength": 1048576
+        }
+      },
+      "required": ["text", "voiceId", "engine", "rate", "size", "hits", "createdAt", "audioB64"]
+    },
+    "PollyCacheMeta": {
+      "title": "PollyCacheMeta",
+      "description": "Metadata for the pollyCache collection to track document counts and sweep times.",
+      "type": "object",
+      "properties": {
+        "totalDocs": {
+          "type": "integer",
+          "description": "Total count of active pollyCache documents currently stored"
+        },
+        "lastSweep": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last database sweep cleanup"
+        }
+      },
+      "required": ["totalDocs", "lastSweep"]
+    }
+  },
+  "firestore": {
+    "/pollyCache/{hash}": {
+      "schema": "PollyCache",
+      "description": "Collection of cached audio records keyed by SHA-1 hash of synthesis inputs."
+    },
+    "/pollyCacheMeta/sweep": {
+      "schema": "PollyCacheMeta",
+      "description": "Singleton metadata document tracking cache volume and sweeps."
+    }
+  }
+}

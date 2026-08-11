@@ -26,6 +26,9 @@ function parseXmlToItems(xmlStr: string, sub: FeedSubscription): FeedItem[] {
     } else {
       link = el.querySelector("link")?.textContent || "";
     }
+    if (sub.feedUrl.includes("/en/") && /^https?:\/\/(www\.)?psmnews\.mv\/\d+$/i.test(link)) {
+      link = link.replace("psmnews.mv/", "psmnews.mv/en/");
+    }
     
     const summary = el.querySelector("description")?.textContent || 
                     el.querySelector("summary")?.textContent || 

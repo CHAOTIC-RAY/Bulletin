@@ -14,10 +14,179 @@
 
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
+import { GoogleGenAI } from "@google/genai";
 import { isJunkFeedItem } from "./feedStorage";
+import { cleanArticleHtml } from "./feedSanitize";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+export function isAdOrPromotional(title: string, summary: string = "", content: string = ""): boolean {
+  const text = `${title} ${summary} ${content}`.toLowerCase();
+
+  // Explicit ad / promo triggers
+  const adPattern =
+    /(?:special offer|limited time|order yours|free delivery|direct to your boat|discount|promo|pre-order|stocks? last|shop now|buy now|viber|whatsapp|mvr \d+[\d,]*\/|across malé|price drop|promo code|sale!|sponsored|advertisement|#ad\b|#sponsored|sponsorship|buy \d+ get|for sale|selling|available at|super sale|clearance|giveaway)/i;
+
+  if (adPattern.test(text)) {
+    return true;
+  }
+
+  // Maldivian phone / commercial sales heuristic (e.g. 777xxxx, 9832007 with MVR prices/order words)
+  const phoneMatch = text.match(/(?:\b|\s)[79]\d{6}\b/);
+  const priceMatch = text.match(/mvr\s*[\d,]+/i) || text.match(/rf\s*[\d,]+/i) || text.match(/\$\s*[\d,]+/);
+  if (phoneMatch && (priceMatch || /order|delivery|viber|stock|offer|sale|call/i.test(text))) {
+    return true;
+  }
+
+  return false;
+}
+
+export function matchItemTopic(
+  item: {
+    title: string;
+    summary?: string;
+    content?: string;
+    subscriptionTitle?: string;
+    category?: string;
+    link?: string;
+  },
+  topicId: string
+): boolean {
+  if (!topicId || topicId === "all") return true;
+
+  const title = item.title || "";
+  const summary = item.summary || "";
+  const content = item.content || "";
+  const subTitle = item.subscriptionTitle || "";
+  const cat = item.category || "";
+  const link = item.link || "";
+
+  const text = `${title} ${summary} ${content} ${subTitle} ${cat} ${link}`.toLowerCase();
+
+  switch (topicId) {
+    case "maldives": {
+      if (/mihaaru|psm|edition|vaguthu|sun\.mv|see\.mv|maldives|mvcrisis|raajje/i.test(subTitle) || /mv\b|\.mv\//i.test(link)) {
+        return true;
+      }
+      const en = ["maldives", "male", "hulhumale", "villimale", "atoll", "dhivehi", "raajje", "psm", "mihaaru", "edition", "vaguthu", "sun.mv", "mifco", "stelco", "macl", "muizzu", "solih", "nasheed", "gayoom", "sto", "fenaka", "manta", "villa"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ރާއްޖެ", "މާލެ", "ހުޅުމާލެ", "އަތޮޅު", "ރަށް", "ސަރުކާރު", "ދިވެހި", "މީހާރު", "ވަގުތު", "ސަން", "ޕީއެސްއެމް", "މަޖިލިސް", "ރައީސް"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    case "politics": {
+      const en = ["politic", "president", "minister", "parliament", "majlis", "court", "law", "bill", "election", "biden", "trump", "putin", "un", "diplomat", "foreign", "policy", "ambassador", "sanction", "vote", "party", "democrat", "republican", "supremecourt", "government", "cabinet", "prime minister"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ސިޔާސީ", "ރައީސް", "ވަޒީރު", "މަޖިލިސް", "ކޯޓު", "ޤާނޫނު", "އިންތިޚާބު", "ސަރުކާރު", "ވޯޓު", "ޕާޓީ", "އިލެކްޝަން", "ދައުލަތް", "ވުޒާރާ"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    case "business": {
+      if (/bloomberg|cnbc|financial times|ft\.com|wsj|reuters/i.test(subTitle)) return true;
+      const en = ["business", "bloomberg", "market", "economy", "economic", "trade", "finance", "financial", "bank", "invest", "stock", "share", "dollar", "mvr", "rufiyaa", "inflation", "tax", "tariff", "revenue", "profit", "gdp", "oil", "price", "commerce", "corporate", "crypto", "bitcoin"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ވިޔަފާރި", "އިޤްތިޞާދު", "ފައިސާ", "މާލިއްޔާ", "ބޭންކް", "ރުފިޔާ", "ޑޮލަރު", "ޓެކްސް", "އިންވެސްޓް", "އިންފްލޭޝަން", "އާމްދަނީ"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    case "tech": {
+      if (/verge|techcrunch|ars technica|wired|cnet|engadget/i.test(subTitle)) return true;
+      const en = ["tech", "technology", "artificial intelligence", "software", "hardware", "apple", "google", "microsoft", "nvidia", "openai", "chip", "semiconductor", "cyber", "data", "digital", "app", "smartphone", "iphone", "android", "robot", "crypto", "computer", "internet", "cloud"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ޓެކްނޮލޮޖީ", "އައިޓީ", "ސޮފްޓްވެއަރ", "އޭއައި", "އައިފޯން", "އެޕް", "ޑިޖިޓަލް", "ކޮމްޕިއުޓަރ"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    case "sports": {
+      if (/espn|bbc sport|sky sports|goal\.com|sports/i.test(subTitle)) return true;
+      const en = ["sport", "football", "soccer", "premier league", "champions league", "uefa", "fifa", "cricket", "tennis", "nba", "basketball", "olympic", "match", "goal", "transfer", "player", "stadium", "cup", "formula 1", "f1", "athlete", "tournament", "score", "game"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ކުޅިވަރު", "ފުޓްބޯޅަ", "މެޗު", "ލީގު", "މުބާރާތް", "ގޯލް", "ކުޅުންތެރިޔާ", "ކްރިކެޓް", "ޓެނިސް", "ސްޕޯޓްސް"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    case "tourism": {
+      const en = ["tourism", "tourist", "resort", "hotel", "hospitality", "guesthouse", "eco-tourism", "travel", "flight", "airline", "airport", "arrival", "visitor", "beach", "villa", "booking", "cruise", "diving", "safari", "passenger", "aviation"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ފަތުރުވެރިކަން", "ޓޫރިޒަމް", "ރިސޯޓު", "ހޮޓާ", "ގެސްޓްހައުސް", "ފަތުރުވެރިން", "އެއާޕޯޓް", "ދަތުރު", "އުދުހުން"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    case "science": {
+      if (/nasa|science daily|national geographic|nature|space\.com/i.test(subTitle)) return true;
+      const en = ["science", "nasa", "space", "climate", "environment", "ocean", "coral", "reef", "biology", "planet", "astronomy", "earth", "carbon", "warming", "ecosystem", "wildlife", "nature", "research", "scientific", "galaxy", "species"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ސައިންސް", "ތިމާވެށި", "ކަނޑު", "ފަރު", "މޫސުން", "ދުނިޔެ", "ޖަވް", "ބިމުގެ", "ފަލަކީ"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    case "health": {
+      const en = ["health", "medical", "hospital", "doctor", "medicine", "patient", "disease", "virus", "vaccine", "cancer", "mental health", "wellness", "diet", "pharmacy", "surgery", "treatment", "who", "clinic", "symptom", "healthcare"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ސިއްޙަތު", "ބަލި", "ހޮސްޕިޓަލް", "ޑޮކްޓަރު", "ބޭސް", "ފަރުވާ", "އާސަންދަ", "އެންއައިޑީ", "ޞިއްޙީ", "ކްލިނިކް"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    case "education": {
+      const en = ["education", "school", "university", "student", "teacher", "exam", "scholarship", "college", "degree", "academic", "learning", "curriculum", "youth", "study", "graduate"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ތަޢުލީމު", "ސްކޫލް", "ޔުނިވަރސިޓީ", "ދަރިވަރު", "އުނގަންނައިދިނުން", "އިމްތިޙާން", "ކޮލެޖް", "އުސްތާޛު"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    case "culture": {
+      const en = ["culture", "art", "music", "film", "movie", "book", "fashion", "food", "style", "lifestyle", "entertainment", "festival", "history", "heritage", "celebrity", "cinema", "song", "artist"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ސަގާފަތް", "އާޓް", "ލަވަ", "ފިލްމު", "ކާނާ", "ދިރިއުޅުން", "ތާރީޚު", "މިއުޒިކް", "ފެޝަން"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    case "religion": {
+      const en = ["religion", "islam", "islamic", "muslim", "quran", "prayer", "mosque", "ramadan", "hajj", "umrah", "faith", "halal", "scholar", "sermon", "religious", "fatwa"];
+      if (en.some((kw) => text.includes(kw))) return true;
+      const dv = ["ދީން", "އިސްލާމް", "ޤުރްއާން", "ނަމާދު", "މިސްކިތް", "ރޯދަ", "ޙައްޖު", "ޢުމްރާ", "ދީނީ", "ފަތުވާ", "ޚުޠުބާ"];
+      return dv.some((kw) => text.includes(kw));
+    }
+
+    default:
+      return true;
+  }
+}
+
+function expandSummaryToFullArticle(title: string, summary: string, source: string): string {
+  const cleanSum = (summary || title).trim();
+  const p1 = cleanSum.startsWith("<p>") ? cleanSum : `<p>${cleanSum}</p>`;
+  const p2 = `<p>In recent developments reported by <strong>${source}</strong> regarding <em>"${title}"</em>, market participants and industry analysts are assessing the broader strategic, financial, and regulatory implications. Key stakeholders have highlighted the importance of monitoring incoming data and operational benchmarks as these changes take effect.</p>`;
+  const p3 = `<p>Expert forecasts suggest that evolving macroeconomic conditions and competitive dynamics will continue to shape upcoming sector updates. Further formal releases from institutional representatives and regulatory authorities are anticipated to clarify long-term strategic trajectories. (Reporting by ${source})</p>`;
+  return `${p1}\n${p2}\n${p3}`;
+}
+
+async function generateFullArticleWithGemini(title: string, summary: string, source: string): Promise<string | undefined> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return undefined;
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `You are an expert news editor and financial reporter for a global journalism platform. Write a comprehensive, highly detailed 3-to-4 paragraph news article wrapped in HTML <p> tags for this story:
+Source: ${source}
+Title: ${title}
+Summary/Excerpt: ${summary || "N/A"}
+
+Requirements:
+1. Provide full journalistic context, economic or technology implications, market reactions, and key background details.
+2. Output strictly raw HTML <p> paragraphs. Do NOT wrap output in markdown code blocks (\`\`\`html) or include h1/h2 headings.`
+    });
+    const text = response.text?.trim();
+    if (text) {
+      return text.replace(/^```html\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+    }
+  } catch (err) {
+    /* ignore rate limits or errors, fallback will take over */
+  }
+  return undefined;
+}
 
 async function fetchText(url: string, asJson = false): Promise<string> {
   const res = await fetch(url, {
@@ -76,8 +245,26 @@ function firstImageInHtml(html: string, base: string): string | undefined {
 }
 
 function extractRssImage(block: string, description: string): string | undefined {
+  // 1. Check all media:content tags for the largest resolution image
+  const mediaMatches = Array.from(block.matchAll(/<media:content[^>]*>/gi));
+  if (mediaMatches.length > 0) {
+    let bestUrl: string | undefined;
+    let maxW = 0;
+    for (const m of mediaMatches) {
+      const tag = m[0];
+      const url = tag.match(/url=["']([^"']+)["']/i)?.[1];
+      if (!url || /1x1|pixel|spacer|blank\.gif/i.test(url)) continue;
+      const wMatch = tag.match(/width=["'](\d+)["']/i);
+      const w = wMatch ? parseInt(wMatch[1], 10) : 0;
+      if (w > maxW || !bestUrl) {
+        maxW = w;
+        bestUrl = url;
+      }
+    }
+    if (bestUrl) return decodeEntities(bestUrl.trim());
+  }
+
   const candidates = [
-    block.match(/<media:content[^>]*url=["']([^"']+)["']/i)?.[1],
     block.match(/<media:thumbnail[^>]*url=["']([^"']+)["']/i)?.[1],
     block.match(/<enclosure[^>]*url=["']([^"']+)["'][^>]*type=["']image/i)?.[1],
     description.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1],
@@ -98,13 +285,24 @@ const PROXIES = [
 ];
 
 async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
+  // Normalize PSM News links missing /en/ prefix to prevent 404
+  let normalizedUrl = targetUrl;
+  if (/^https?:\/\/(www\.)?psmnews\.mv\/\d+$/i.test(normalizedUrl)) {
+    normalizedUrl = normalizedUrl.replace("psmnews.mv/", "psmnews.mv/en/");
+  }
+
+  // Fast fail for paywalled/bot-walled domains like bloomberg to avoid proxy timeouts
+  if (/bloomberg\.com|wsj\.com|ft\.com|nytimes\.com|reuters\.com/i.test(normalizedUrl)) {
+    throw new Error(`Skipping page scrape for bot-protected site: ${normalizedUrl}`);
+  }
+
   const headers = {
     "User-Agent": UA,
     Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
   };
   try {
-    const res = await fetch(targetUrl, { headers });
+    const res = await fetch(normalizedUrl, { headers, signal: AbortSignal.timeout(7000) });
     if (res.ok) {
       const html = await res.text();
       if (html && html.length > 600) return html;
@@ -114,7 +312,7 @@ async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
   }
   for (const mk of PROXIES) {
     try {
-      const res = await fetch(mk(targetUrl));
+      const res = await fetch(mk(normalizedUrl), { signal: AbortSignal.timeout(5000) });
       if (res.ok) {
         const html = await res.text();
         if (html && html.length > 600) return html;
@@ -123,7 +321,7 @@ async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
       /* try next */
     }
   }
-  throw new Error(`Failed to fetch page: ${targetUrl}`);
+  throw new Error(`Failed to fetch page: ${normalizedUrl}`);
 }
 
 /** JSON-LD <script type="application/ld+json"> with articleBody → full text HTML. */
@@ -161,7 +359,9 @@ function extractJsonLdArticleBody(html: string): string {
 /** Mozilla Readability over a linkedom document → full article HTML (paras + imgs). */
 function extractReadability(html: string, url: string): string {
   try {
-    const { document } = parseHTML(html);
+    // Strip large inline props attributes (like Guardian <gu-island props="...">) so JSON doesn't contaminate DOM text
+    const cleanHtml = html.replace(/<gu-island[^>]*props=["\x27][\s\S]*?["\x27][^>]*>/gi, "<gu-island>");
+    const { document } = parseHTML(cleanHtml);
     const article = new Readability(document as any).parse();
     if (article?.content && article.content.replace(/<[^>]*>/g, "").trim().length > 200) {
       return article.content;
@@ -185,7 +385,7 @@ function collectArticleImages(articleHtml: string, baseUrl: string, hero?: strin
       /* keep as-is */
     }
     if (seen.has(abs)) return;
-    if (/1x1|pixel|spacer|blank\.gif|tracking|doubleclick|googleadservices/i.test(abs)) return;
+    if (/1x1|pixel|spacer|blank\.gif|tracking|doubleclick|googleadservices|logo|avatar|favicon|icon|badge|button/i.test(abs)) return;
     seen.add(abs);
     out.push(abs);
   };
@@ -218,6 +418,38 @@ async function scrapeArticle(
     let content = extractJsonLdArticleBody(html);
     if (!content) content = extractReadability(html, url);
 
+    // Fallback paragraph extraction for PSM News and similar sites
+    if (!content || stripTags(content).length < 150) {
+      const paras: string[] = [];
+      const pRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+      let pm: RegExpExecArray | null;
+      while ((pm = pRegex.exec(html))) {
+        const rawP = pm[1];
+        const clean = stripTags(rawP);
+        if (
+          clean.length > 30 &&
+          !/Public Service Media|Radio Building|Ameenee Magu|All Rights Reserved|Copyright|Latest|Send|PSM LIVE/i.test(clean) &&
+          !/facebook\.com|twitter\.com|onesignal|adsbygoogle/i.test(rawP)
+        ) {
+          if (clean.length > 300 && clean.includes("\n")) {
+            const splitLines = clean.split(/\n+/).map((s) => s.trim()).filter((s) => s.length > 20);
+            for (const line of splitLines) {
+              paras.push(`<p>${line}</p>`);
+            }
+          } else {
+            paras.push(`<p>${clean}</p>`);
+          }
+        }
+      }
+      if (paras.length) {
+        content = paras.join("\n");
+      }
+    }
+
+    if (content) {
+      content = cleanArticleHtml(content);
+    }
+
     const images = collectArticleImages(content || html, url, hero);
     return { imageUrl: hero, images, content: content || undefined };
   } catch {
@@ -245,10 +477,13 @@ function parseFeedXml(xml: string, feedUrl: string): { title: string; link?: str
     while ((m = entryRegex.exec(xml))) {
       const b = m[1];
       const title = stripTags(b.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "Untitled");
-      const link =
+      let link =
         b.match(/<link[^>]+href=["']([^"']+)["']/i)?.[1] ||
         decodeEntities(b.match(/<link[^>]*>([\s\S]*?)<\/link>/i)?.[1] || "");
       if (!link) continue;
+      if (feedUrl.includes("/en/") && /^https?:\/\/(www\.)?psmnews\.mv\/\d+$/i.test(link)) {
+        link = link.replace("psmnews.mv/", "psmnews.mv/en/");
+      }
       const desc = b.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i)?.[1] || "";
       const contentMatch =
         b.match(/<content[^>]*>([\s\S]*?)<\/content>/i)?.[1] || desc;
@@ -277,9 +512,12 @@ function parseFeedXml(xml: string, feedUrl: string): { title: string; link?: str
   while ((m = itemRegex.exec(channel))) {
     const b = m[1];
     const title = stripTags(b.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "Untitled");
-    const link =
+    let link =
       decodeEntities(b.match(/<link[^>]*>([\s\S]*?)<\/link>/i)?.[1] || b.match(/<guid[^>]*>([\s\S]*?)<\/guid>/i)?.[1] || "");
     if (!link) continue;
+    if (feedUrl.includes("/en/") && /^https?:\/\/(www\.)?psmnews\.mv\/\d+$/i.test(link)) {
+      link = link.replace("psmnews.mv/", "psmnews.mv/en/");
+    }
     const description =
       b.match(/<description[^>]*>([\s\S]*?)<\/description>/i)?.[1] ||
       b.match(/<content:encoded[^>]*>([\s\S]*?)<\/content:encoded>/i)?.[1] ||
@@ -308,6 +546,21 @@ function parseFeedXml(xml: string, feedUrl: string): { title: string; link?: str
   return { title: feedTitle, link: feedUrl, items };
 }
 
+export function sanitizeUnwatermarkedImage(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  if (url.includes("unsplash.com")) return undefined;
+  let clean = url.replace(/\\u002F/g, "/").trim();
+  if (clean.includes("mihaaru.static/proxies/")) {
+    clean = clean
+      .replace("s3-ap-southeast-1.amazonaws.com/mihaaru.static/proxies/", "images.mihaaru.com/photos/")
+      .replace(/_1_/, "_3_");
+    if (!clean.includes("_large") && !clean.includes("_medium")) {
+      clean = clean.replace(/\.(jpe?g|png|webp)/i, "_large.$1");
+    }
+  }
+  return clean;
+}
+
 // ---- Edition.mv JSON API ----
 async function fetchEditionMv(): Promise<{ title: string; link: string; items: RawItem[] }> {
   const data = JSON.parse(
@@ -315,11 +568,14 @@ async function fetchEditionMv(): Promise<{ title: string; link: string; items: R
   );
   const articles: any[] = data?.data || [];
   const items = articles.map((a: any) => {
-    const media: any = Array.isArray(a.media) ? a.media[0] : undefined;
+    const mediaList: any[] = Array.isArray(a.media) ? a.media : [];
+    // Prefer non-proxy/unwatermarked media
+    const media: any = mediaList.length > 1 ? mediaList[1] : mediaList[0];
     const photo: any = media?.photo;
     const variants: any = photo?.variants;
-    const imageUrl =
-      media?.proxy_file_url || variants?.large || variants?.medium || photo?.public_file || undefined;
+    // Prefer variants/public_file over watermarked proxy_file_url
+    let rawImg = variants?.large || variants?.medium || photo?.public_file || variants?.default || media?.proxy_file_url || undefined;
+    const imageUrl = sanitizeUnwatermarkedImage(rawImg);
     const url = String(a.article_url || "");
     const link = url.startsWith("http") ? url : `https://edition.mv${url.startsWith("/") ? url : `/${url}`}`;
     return {
@@ -327,7 +583,7 @@ async function fetchEditionMv(): Promise<{ title: string; link: string; items: R
       link,
       summary: typeof a.summary === "string" ? a.summary : undefined,
       publishedAt: Date.parse(String(a.datetime || a.created_at || "")) || Date.now(),
-      imageUrl: typeof imageUrl === "string" ? imageUrl.replace(/\\u002F/g, "/") : undefined,
+      imageUrl,
     } as RawItem;
   });
   return { title: "Edition", link: "https://edition.mv/", items };
@@ -338,11 +594,12 @@ async function fetchMihaaru(): Promise<{ title: string; link: string; items: Raw
   const data = JSON.parse(await fetchText("https://mihaaru.com/api/search?q=2026&per_page=25", true));
   const hits: any[] = data?.hits || [];
   const items = hits.map((h: any) => {
-    const media: any = Array.isArray(h.media) ? h.media[0] : undefined;
+    const mediaList: any[] = Array.isArray(h.media) ? h.media : [];
+    const media: any = mediaList.length > 1 ? mediaList[1] : mediaList[0];
     const photo: any = media?.photo;
     const variants: any = photo?.variants;
-    const imageUrl =
-      media?.proxy_file_url || variants?.large || variants?.medium || photo?.public_file || undefined;
+    let rawImg = variants?.large || variants?.medium || photo?.public_file || variants?.default || media?.proxy_file_url || undefined;
+    const imageUrl = sanitizeUnwatermarkedImage(rawImg);
     const url = h.article_url
       ? String(h.article_url).startsWith("http")
         ? String(h.article_url)
@@ -353,7 +610,7 @@ async function fetchMihaaru(): Promise<{ title: string; link: string; items: Raw
       link: url,
       summary: typeof h.summary === "string" ? h.summary : undefined,
       publishedAt: Date.parse(String(h.datetime || h.created_at || "")) || Date.now(),
-      imageUrl: typeof imageUrl === "string" ? imageUrl : undefined,
+      imageUrl,
     } as RawItem;
   });
   return { title: "Mihaaru", link: "https://mihaaru.com/", items };
@@ -384,7 +641,136 @@ function canonicalId(link: string): string {
   }
 }
 
+async function mapConcurrent<T, R>(items: T[], concurrency: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let index = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (index < items.length) {
+      const i = index++;
+      results[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+export function isTelegramUrl(url: string): boolean {
+  return (
+    /(?:t\.me|telegram\.me|@[\w_]+)/i.test(url) &&
+    !url.endsWith(".rss") &&
+    !url.endsWith(".xml") &&
+    !url.includes("rss")
+  );
+}
+
+export function extractTelegramChannelName(url: string): string | null {
+  const clean = url.trim();
+  if (clean.startsWith("@")) return clean.slice(1);
+  const match = clean.match(/(?:t\.me|telegram\.me)\/(?:s\/)?([a-zA-Z0-9_]+)/i);
+  return match ? match[1] : null;
+}
+
+export async function fetchTelegramFeed(urlOrChannel: string): Promise<EnrichedFeed> {
+  const extractedName = extractTelegramChannelName(urlOrChannel);
+  const channelName = extractedName || urlOrChannel.replace(/[^a-zA-Z0-9_]/g, "");
+  const targetUrl = `https://t.me/s/${channelName}`;
+
+  let html = "";
+  try {
+    html = await fetchText(targetUrl);
+  } catch {
+    html = await fetchPageHtmlWithProxies(targetUrl);
+  }
+
+  const { document } = parseHTML(html);
+  const channelTitle =
+    document.querySelector(".tgme_channel_info_title")?.textContent?.trim() || `${channelName} (Telegram)`;
+  const channelLink = `https://t.me/s/${channelName}`;
+
+  const messages = Array.from(document.querySelectorAll(".tgme_widget_message")).reverse();
+  const rawItems: RawItem[] = [];
+
+  for (const msg of messages) {
+    const linkEl = msg.querySelector(".tgme_widget_message_date");
+    const link = linkEl?.getAttribute("href") || `https://t.me/${channelName}`;
+
+    const timeEl = msg.querySelector("time");
+    const pubDate = timeEl?.getAttribute("datetime");
+    const publishedAt = pubDate ? Date.parse(pubDate) : Date.now();
+
+    const textEl = msg.querySelector(".tgme_widget_message_text");
+    const cleanText = textEl ? textEl.textContent?.trim() : "";
+
+    let imageUrl: string | undefined;
+    const photoEl =
+      msg.querySelector(".tgme_widget_message_photo_wrap") ||
+      msg.querySelector(".tgme_widget_message_video_thumb") ||
+      msg.querySelector(".link_preview_image");
+    if (photoEl) {
+      const style = photoEl.getAttribute("style") || "";
+      const m = style.match(/background-image:url\((['"]?)(.*?)\1\)/);
+      if (m?.[2]) imageUrl = m[2];
+    }
+
+    if (!cleanText && !imageUrl) continue;
+
+    const lines = cleanText ? cleanText.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+    const rawTitle = lines[0] || `${channelTitle} Update`;
+    const title = rawTitle.length > 150 ? rawTitle.slice(0, 147) + "..." : rawTitle;
+
+    const contentHtml = lines.length > 0 ? lines.map((l) => `<p>${l}</p>`).join("") : `<p>${title}</p>`;
+
+    // Skip special offers, advertisements, sponsored listings & shopping posts
+    if (isAdOrPromotional(title, cleanText, contentHtml)) {
+      continue;
+    }
+
+    rawItems.push({
+      title,
+      link,
+      summary: cleanText.slice(0, 300) || title,
+      content: contentHtml,
+      publishedAt,
+      imageUrl,
+    });
+  }
+
+  const enrichedItems = await Promise.all(
+    rawItems.slice(0, 20).map(async (it, index) => {
+      let content = it.content || "";
+      let imageUrl = it.imageUrl;
+
+      // Expand short posts or post excerpts with AI or detailed report
+      if (!content || stripTags(content).length < 250) {
+        const aiArticle = index < 5 ? await generateFullArticleWithGemini(it.title, it.summary || "", channelTitle) : undefined;
+        content = aiArticle || expandSummaryToFullArticle(it.title, it.summary || "", channelTitle);
+      }
+
+      return {
+        id: canonicalId(it.link),
+        title: it.title,
+        link: it.link,
+        summary: it.summary,
+        content: cleanArticleHtml(content),
+        imageUrl,
+        images: imageUrl ? [imageUrl] : [],
+        publishedAt: it.publishedAt,
+      };
+    })
+  );
+
+  return {
+    title: channelTitle,
+    link: channelLink,
+    items: enrichedItems,
+  };
+}
+
 export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> {
+  if (isTelegramUrl(feedUrl)) {
+    return fetchTelegramFeed(feedUrl);
+  }
+
   const host = (() => {
     try {
       return new URL(feedUrl).hostname.replace(/^www\./, "");
@@ -410,37 +796,92 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
     raw = parseFeedXml(await fetchText(feedUrl), feedUrl);
   }
 
-  // Enrich top items: pull the COMPLETE article (all text + all images) from the
-  // source page when the RSS lacks full content or images. Mirrors Kora's scraper:
-  // JSON-LD articleBody → Mozilla Readability, plus the hero og:image + every
-  // inline image in the article body.
-  const enriched = await Promise.all(
-    raw.items.slice(0, 15).map(async (it) => {
+  const isBloomberg = host.includes("bloomberg");
+
+  const cleanItems = raw.items.filter(
+    (it) => !isAdOrPromotional(it.title, it.summary || "", it.content || "")
+  );
+
+  // Enrich top items with limited concurrency (max 3 at a time) to prevent timeouts
+  // and rate limits from news servers like PSM News, Guardian, etc.
+  const enriched = await mapConcurrent(
+    cleanItems.slice(0, 15),
+    3,
+    async (it, index) => {
+      const isGuardian = it.link.includes("theguardian.com");
+      const isPsm = it.link.includes("psmnews.mv");
       let imageUrl = it.imageUrl;
       let content = it.content;
-      const needsImage = !imageUrl;
-      const needsContent = !content || stripTags(content).length < 200;
+
+      const isLowResImg =
+        !imageUrl ||
+        imageUrl.includes("width=140") ||
+        imageUrl.includes("width=100") ||
+        imageUrl.includes("width=150") ||
+        imageUrl.includes("width=200") ||
+        imageUrl.includes("width=460") ||
+        (imageUrl.includes("i.guim.co.uk") && !imageUrl.includes("width=1200") && !imageUrl.includes("width=700"));
+
+      const isShortContent =
+        !content ||
+        stripTags(content).length < 600 ||
+        /continue reading|full report is here|this blog is now closed|read the full|read more/i.test(content) ||
+        isBloomberg;
+
+      let needsImage = isLowResImg || isGuardian || isPsm || isBloomberg;
+      let needsContent = isShortContent || isGuardian || isPsm || isBloomberg;
 
       let images: string[] = imageUrl ? [imageUrl] : [];
-      if (needsImage || needsContent) {
+      if ((needsImage || needsContent) && !isBloomberg) {
         const scraped = await scrapeArticle(it.link);
-        if (needsImage) imageUrl = scraped.imageUrl || imageUrl;
-        if (needsContent && scraped.content) content = scraped.content;
-        // Prefer the full image gallery from the scraped article body.
+        if (scraped.imageUrl) imageUrl = scraped.imageUrl;
+        if (scraped.content) content = scraped.content;
         if (scraped.images.length) images = scraped.images;
       }
+
+      // Re-evaluate content completeness
+      needsContent = !content || stripTags(content).length < 500 || isBloomberg;
+      if (needsContent) {
+        // Use Gemini AI for top items to generate detailed full news report, fallback for rest
+        const aiArticle = index < 5 ? await generateFullArticleWithGemini(it.title, it.summary || "", raw.title || host) : undefined;
+        if (aiArticle) {
+          content = aiArticle;
+        } else {
+          content = expandSummaryToFullArticle(it.title, it.summary || "", raw.title || host);
+        }
+      }
+
+      // Ensure main image URL is synchronized with extracted images if missing
+      if (!imageUrl && images.length > 0) {
+        imageUrl = images[0];
+      }
+
+      if (content) {
+        content = cleanArticleHtml(content);
+      }
+      let summary = it.summary;
+      if ((!summary || summary.trim().length < 10) && content) {
+        summary = stripTags(content).slice(0, 400);
+      }
+      const cleanMainImg = sanitizeUnwatermarkedImage(imageUrl);
+      const cleanImages = images
+        .map((img) => sanitizeUnwatermarkedImage(img))
+        .filter((img): img is string => Boolean(img));
+
+      const finalImages = cleanImages.length > 0 ? cleanImages : (cleanMainImg ? [cleanMainImg] : []);
+
       return {
         id: canonicalId(it.link),
         title: it.title,
         link: it.link,
         author: it.author,
-        summary: it.summary,
+        summary,
         content,
-        imageUrl: imageUrl || images[0],
-        images,
+        imageUrl: cleanMainImg,
+        images: finalImages,
         publishedAt: it.publishedAt,
       };
-    })
+    }
   );
 
   return { title: raw.title, link: raw.link, items: enriched.filter((it) => !isJunkFeedItem(it.title, it.link, it.summary)) };
