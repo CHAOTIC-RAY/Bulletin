@@ -9,6 +9,7 @@
 import { synthesizePiperAudio, PIPER_VOICE_PACKS } from "./piperVoiceManager";
 import { getWebSpeechVoices, pickVoice, prepareTextForNaturalSpeech } from "./webSpeechEngine";
 import { synthesizePolly } from "./pollyEngine";
+import { cleanTtsText } from "./feedSanitize";
 
 export type TtsEngineType = "webspeech" | "piper" | "polly";
 
@@ -369,5 +370,79 @@ export class RaadhavalhiTts {
 
   public get isPlaying(): boolean {
     return this.playing;
+  }
+
+  private prefetchQueue: string[] = [];
+  private isPrefetching = false;
+  private currentPrefetchId = 0;
+
+  public async prefetchItems(items: any[], startIndex: number) {
+    if (this.engine !== "polly" && this.engine !== "piper") {
+      return;
+    }
+
+    const prefetchId = ++this.currentPrefetchId;
+    this.prefetchQueue = [];
+    
+    const numItemsToPrefetch = 5;
+    const itemsToPrefetch = items.slice(startIndex, startIndex + numItemsToPrefetch);
+
+    const sentencesToPrefetch: string[] = [];
+
+    for (const item of itemsToPrefetch) {
+      if (!item) continue;
+      if (prefetchId !== this.currentPrefetchId) return;
+
+      // Add title sentences
+      const titleSentences = splitSentences(item.title);
+      for (const s of titleSentences) {
+        if (s.trim()) {
+          sentencesToPrefetch.push(s);
+        }
+      }
+
+      // Add summary/content sentences
+      const detailedText = item.summary && item.summary.trim()
+        ? cleanTtsText(item.summary).replace(/\s+/g, " ").trim()
+        : item.content
+        ? cleanTtsText(item.content).replace(/\s+/g, " ").trim()
+        : "";
+
+      if (detailedText.trim()) {
+        const summarySentences = splitSentences(detailedText);
+        for (const s of summarySentences) {
+          if (s.trim()) {
+            sentencesToPrefetch.push(s);
+          }
+        }
+      }
+    }
+
+    this.prefetchQueue = sentencesToPrefetch;
+    if (this.isPrefetching) return;
+
+    this.isPrefetching = true;
+    while (this.prefetchQueue.length > 0) {
+      if (prefetchId !== this.currentPrefetchId) {
+        this.isPrefetching = false;
+        return;
+      }
+      const sentence = this.prefetchQueue.shift();
+      if (!sentence) continue;
+
+      try {
+        if (this.engine === "polly") {
+          await synthesizePolly(sentence, this.pollyVoiceId, this.pollyEngine, this.rate);
+        } else if (this.engine === "piper") {
+          await synthesizePiperAudio(sentence, this.piperPackId);
+        }
+      } catch (err) {
+        console.warn("Background prefetch failed for sentence:", sentence, err);
+      }
+
+      // Yield 100ms
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    this.isPrefetching = false;
   }
 }

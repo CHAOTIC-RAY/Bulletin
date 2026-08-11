@@ -61,10 +61,10 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
   return createPortal(
     <div dir={isRtl ? "rtl" : "ltr"} className={`fixed inset-0 z-[9999] bg-neutral-50 text-neutral-900 flex flex-col dark:bg-neutral-950 dark:text-white ${isRtl ? "font-thaana" : ""}`} style={{ height: "100dvh" }}>
       <div className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10">
-        <button onClick={onClose} className="p-2 rounded-full bg-black/5 dark:bg-white/10">{t("reader.back")}</button>
+        <button onClick={onClose} className="px-3 py-1.5 rounded-none border-2 border-neutral-950 dark:border-neutral-200 bg-black/5 dark:bg-white/10 text-xs font-bold">{t("reader.back")}</button>
         <span className="text-[10px] font-bold uppercase tracking-widest truncate max-w-[50%]">{item.subscriptionTitle}</span>
         <div className="flex gap-2">
-          <button onClick={toggleListen} className="px-3 py-1.5 rounded-full bg-amber-500 text-black text-xs font-bold">
+          <button onClick={toggleListen} className="px-3 py-1.5 rounded-none border-2 border-neutral-950 dark:border-neutral-200 bg-amber-500 text-black text-xs font-bold">
             {playing ? `⏸ ${t("reader.stop")}` : `▶ ${t("reader.listen")}`}
           </button>
         </div>
@@ -74,7 +74,7 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
         <h1 dir={dir} className={`text-2xl font-bold leading-tight mb-4 ${dir === "rtl" ? "font-thaana" : ""}`}>{item.title}</h1>
 
         {item.imageUrl && (
-          <img src={item.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full rounded-xl mb-4 object-cover" />
+          <img src={item.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full rounded-none border-2 border-neutral-950 dark:border-neutral-700 mb-4 object-cover" />
         )}
 
         {item.content ? (

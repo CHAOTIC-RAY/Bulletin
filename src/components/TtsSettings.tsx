@@ -251,7 +251,7 @@ export default function TtsSettings() {
         <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-400 px-1">
           Active Text-To-Speech Engine
         </h2>
-        <div className="rounded-2xl bg-neutral-900 border border-white/10 overflow-hidden divide-y divide-white/10">
+        <div className="rounded-none bg-neutral-900 border-2 border-white/10 overflow-hidden divide-y divide-white/10">
           {/* WebSpeech Engine */}
           <button
             type="button"
@@ -723,7 +723,7 @@ export default function TtsSettings() {
       </div>
 
       {/* Live Voice Preview Controller */}
-      <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+      <div className="p-4 rounded-none bg-white/5 border-2 border-white/15 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Volume2 className="w-5 h-5 text-amber-400" />
           <div>
@@ -736,7 +736,7 @@ export default function TtsSettings() {
 
         <button
           onClick={() => handleTestVoice()}
-          className="px-4 py-2 rounded-full bg-amber-500 text-black font-bold text-sm hover:bg-amber-400 transition-colors flex items-center gap-2"
+          className="px-4 py-2 rounded-none border-2 border-neutral-950 bg-amber-500 text-black font-bold text-sm hover:bg-amber-400 transition-colors flex items-center gap-2"
         >
           {isPlayingTest ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
           {isPlayingTest ? "Stop Test" : "Test Active Voice"}
@@ -744,12 +744,12 @@ export default function TtsSettings() {
       </div>
 
       {/* Auto-Scroll Toggle */}
-      <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+      <div className="p-4 rounded-none bg-white/5 border-2 border-white/15 flex items-center justify-between">
         <div className="space-y-1 pr-4">
           <div className="text-sm font-bold text-white flex items-center gap-2">
             <span>Auto-Scroll On Finish</span>
             {autoScroll && (
-              <span className="text-[10px] bg-amber-500 text-black font-extrabold px-2 py-0.5 rounded-full">
+              <span className="text-[10px] bg-amber-500 text-black font-extrabold px-2 py-0.5 rounded-none border border-black/30">
                 ENABLED
               </span>
             )}
@@ -765,12 +765,12 @@ export default function TtsSettings() {
             setAutoScroll(next);
             localStorage.setItem("raadhavalhi_auto_scroll", next ? "true" : "false");
           }}
-          className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 relative shrink-0 ${
-            autoScroll ? "bg-amber-500" : "bg-white/20"
+          className={`w-14 h-8 rounded-none p-1 border-2 transition-colors duration-300 relative shrink-0 ${
+            autoScroll ? "bg-amber-500 border-amber-600" : "bg-white/20 border-white/10"
           }`}
         >
           <div
-            className={`w-6 h-6 rounded-full bg-neutral-950 shadow-md transition-transform duration-300 ${
+            className={`w-6 h-6 rounded-none bg-neutral-950 shadow-md transition-transform duration-300 ${
               autoScroll ? "translate-x-6" : "translate-x-0"
             }`}
           />

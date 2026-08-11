@@ -168,6 +168,11 @@ export default function RaadhavalhiFeedScroll({
     };
   }, [active, userMuted, items, tts]);
 
+  useEffect(() => {
+    // Prefetch upcoming items in the background
+    tts.prefetchItems(items, active);
+  }, [active, items, tts]);
+
   const toggleMute = () => {
     const nextMute = !userMuted;
     setUserMuted(nextMute);
@@ -245,10 +250,10 @@ export default function RaadhavalhiFeedScroll({
                 {/* Listen / TTS Button (icon only, directly above filter button) */}
                 <button
                   onClick={toggleMute}
-                  className={`w-11 h-11 rounded-full border backdrop-blur flex items-center justify-center transition-all active:scale-95 ${
+                  className={`w-11 h-11 rounded-none border-2 backdrop-blur flex items-center justify-center transition-all active:scale-95 ${
                     userMuted 
                       ? "bg-black/50 text-white/70 hover:bg-black/80 hover:text-white border-white/20" 
-                      : "bg-amber-500 text-black border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.5)]"
+                      : "bg-amber-500 text-black border-amber-400 shadow-none"
                   }`}
                   title={userMuted ? "Listen to News" : "Mute Speech"}
                 >
@@ -259,8 +264,8 @@ export default function RaadhavalhiFeedScroll({
                       <Volume2 className="w-5 h-5 text-black" />
                       {isReading && (
                         <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-black"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-none bg-black opacity-75"></span>
+                          <span className="relative inline-flex rounded-none h-2.5 w-2.5 bg-black"></span>
                         </span>
                       )}
                     </div>
@@ -270,9 +275,9 @@ export default function RaadhavalhiFeedScroll({
                 {onOpenFilter && (
                   <button
                     onClick={onOpenFilter}
-                    className={`w-11 h-11 rounded-full border bg-black/50 backdrop-blur flex items-center justify-center transition-all active:scale-95 ${
+                    className={`w-11 h-11 rounded-none border-2 bg-black/50 backdrop-blur flex items-center justify-center transition-all active:scale-95 ${
                       hasActiveFilters
-                        ? "bg-amber-500 text-black border-amber-400 font-bold shadow-[0_0_12px_rgba(245,158,11,0.5)]"
+                        ? "bg-amber-500 text-black border-amber-400 font-bold shadow-none"
                         : "border-white/20 text-white hover:bg-black/70"
                     }`}
                     title="Filter & Sort News"
@@ -282,7 +287,7 @@ export default function RaadhavalhiFeedScroll({
                 )}
                 <button
                   onClick={() => onSave(item)}
-                  className={`w-11 h-11 rounded-full border border-white/20 bg-black/50 backdrop-blur flex items-center justify-center text-white active:scale-95 ${
+                  className={`w-11 h-11 rounded-none border-2 border-white/20 bg-black/50 backdrop-blur flex items-center justify-center text-white active:scale-95 ${
                     item.saved ? "bg-amber-500 text-black border-amber-500" : ""
                   }`}
                   title="Save"
@@ -291,7 +296,7 @@ export default function RaadhavalhiFeedScroll({
                 </button>
                 <button
                   onClick={onOpenBrief}
-                  className="w-11 h-11 rounded-full border border-amber-400/50 bg-amber-500 text-black flex items-center justify-center active:scale-95 shadow-lg"
+                  className="w-11 h-11 rounded-none border-2 border-amber-400 bg-amber-500 text-black flex items-center justify-center active:scale-95 shadow-none"
                   title="Daily Brief"
                 >
                   ⚡
@@ -308,10 +313,10 @@ export default function RaadhavalhiFeedScroll({
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest mb-2 text-white/80">
                 <div className="flex items-center gap-2">
                   <span className="text-amber-400 font-extrabold">{item.subscriptionTitle}</span>
-                  {item.saved && <span className="rounded-full bg-amber-500 text-black px-1.5 py-0.5 text-[9px]">Saved</span>}
+                  {item.saved && <span className="rounded-none border border-black/30 bg-amber-500 text-black px-1.5 py-0.5 text-[9px]">Saved</span>}
                 </div>
                 {isExpanded && (
-                  <span className="text-amber-400 bg-black/60 border border-amber-500/30 px-2 py-0.5 rounded-full text-[10px] font-mono">
+                  <span className="text-amber-400 bg-black/60 border-2 border-amber-500/30 px-2 py-0.5 rounded-none text-[10px] font-mono">
                     ▲ Tap to collapse
                   </span>
                 )}
@@ -340,7 +345,7 @@ export default function RaadhavalhiFeedScroll({
               )}
 
               <div className="flex items-center gap-2.5 mt-3 text-[11px] font-mono text-white/80">
-                <span className="font-bold bg-black/50 px-2 py-0.5 rounded border border-white/15 shrink-0">{index + 1}/{items.length}</span>
+                <span className="font-bold bg-black/50 px-2 py-0.5 rounded-none border-2 border-white/15 shrink-0">{index + 1}/{items.length}</span>
                 <span className="text-amber-300 font-medium truncate">
                   {new Date(item.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} • {new Date(item.publishedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                 </span>

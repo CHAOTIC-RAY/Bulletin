@@ -31,7 +31,7 @@ export default function LanguageSetup({ onDone }: Props) {
         <div className="flex items-center gap-3">
           <button
             onClick={handleComplete}
-            className="p-2 -ml-2 rounded-full hover:bg-white/10 active:scale-95 text-neutral-300 transition-all flex items-center justify-center"
+            className="p-2 -ml-2 rounded-none border border-white/20 hover:bg-white/10 active:scale-95 text-neutral-300 transition-all flex items-center justify-center"
             title="Back to news"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -44,7 +44,7 @@ export default function LanguageSetup({ onDone }: Props) {
 
         <button
           onClick={handleComplete}
-          className="px-4 py-1.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs tracking-wide shadow-md active:scale-95 transition-all"
+          className="px-4 py-1.5 rounded-none border-2 border-black bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs tracking-wide shadow-none active:scale-95 transition-all"
         >
           Done
         </button>
@@ -52,13 +52,13 @@ export default function LanguageSetup({ onDone }: Props) {
 
       <div className="flex-1 max-w-lg w-full mx-auto p-4 sm:p-6 flex flex-col space-y-5">
         {/* Mobile Segmented Control */}
-        <div className="p-1 bg-neutral-900 border border-white/10 rounded-2xl flex items-center shadow-inner">
+        <div className="p-1 bg-neutral-900 border-2 border-white/15 rounded-none flex items-center shadow-none">
           <button
             onClick={() => setTab("tts")}
-            className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            className={`flex-1 py-2 px-2 rounded-none text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-2 ${
               tab === "tts"
-                ? "bg-amber-500 text-black shadow-md font-extrabold"
-                : "text-neutral-400 hover:text-white"
+                ? "bg-amber-500 text-black border-amber-600 font-extrabold"
+                : "text-neutral-400 hover:text-white border-transparent"
             }`}
           >
             <Mic className="w-3.5 h-3.5" />
@@ -67,10 +67,10 @@ export default function LanguageSetup({ onDone }: Props) {
 
           <button
             onClick={() => setTab("language")}
-            className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            className={`flex-1 py-2 px-2 rounded-none text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-2 ${
               tab === "language"
-                ? "bg-amber-500 text-black shadow-md font-extrabold"
-                : "text-neutral-400 hover:text-white"
+                ? "bg-amber-500 text-black border-amber-600 font-extrabold"
+                : "text-neutral-400 hover:text-white border-transparent"
             }`}
           >
             <Globe className="w-3.5 h-3.5" />
@@ -79,10 +79,10 @@ export default function LanguageSetup({ onDone }: Props) {
 
           <button
             onClick={() => setTab("sources")}
-            className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            className={`flex-1 py-2 px-2 rounded-none text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-2 ${
               tab === "sources"
-                ? "bg-amber-500 text-black shadow-md font-extrabold"
-                : "text-neutral-400 hover:text-white"
+                ? "bg-amber-500 text-black border-amber-600 font-extrabold"
+                : "text-neutral-400 hover:text-white border-transparent"
             }`}
           >
             <Newspaper className="w-3.5 h-3.5" />
@@ -109,7 +109,7 @@ export default function LanguageSetup({ onDone }: Props) {
             </div>
 
             {/* iOS style grouped list */}
-            <div className="rounded-2xl bg-neutral-900 border border-white/10 overflow-hidden divide-y divide-white/10">
+            <div className="rounded-none bg-neutral-900 border-2 border-white/10 overflow-hidden divide-y divide-white/10">
               <button
                 onClick={() => setUiLocale("en")}
                 className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 active:bg-white/10 transition-colors"
@@ -122,11 +122,11 @@ export default function LanguageSetup({ onDone }: Props) {
                   </div>
                 </div>
                 {uiLocale === "en" ? (
-                  <div className="w-6 h-6 rounded-full bg-amber-500 text-black flex items-center justify-center font-bold">
+                  <div className="w-6 h-6 rounded-none border border-black/30 bg-amber-500 text-black flex items-center justify-center font-bold">
                     <Check className="w-4 h-4 stroke-[3]" />
                   </div>
                 ) : (
-                  <div className="w-6 h-6 rounded-full border border-white/20" />
+                  <div className="w-6 h-6 rounded-none border-2 border-white/20" />
                 )}
               </button>
 
@@ -142,11 +142,11 @@ export default function LanguageSetup({ onDone }: Props) {
                   </div>
                 </div>
                 {uiLocale === "dv" ? (
-                  <div className="w-6 h-6 rounded-full bg-amber-500 text-black flex items-center justify-center font-bold">
+                  <div className="w-6 h-6 rounded-none border border-black/30 bg-amber-500 text-black flex items-center justify-center font-bold">
                     <Check className="w-4 h-4 stroke-[3]" />
                   </div>
                 ) : (
-                  <div className="w-6 h-6 rounded-full border border-white/20" />
+                  <div className="w-6 h-6 rounded-none border-2 border-white/20" />
                 )}
               </button>
             </div>
@@ -165,7 +165,7 @@ export default function LanguageSetup({ onDone }: Props) {
         <div className="max-w-lg mx-auto">
           <button
             onClick={handleComplete}
-            className="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-extrabold text-sm tracking-wide shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3.5 rounded-none bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-extrabold text-sm tracking-wide shadow-none transition-all flex items-center justify-center gap-2"
           >
             <span>Save & Continue to News</span>
             <ChevronRight className="w-4 h-4 stroke-[3]" />

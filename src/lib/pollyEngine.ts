@@ -68,24 +68,38 @@ export const POLLY_VOICES: PollyVoice[] = [
   },
 ];
 
+const pollyBlobCache = new Map<string, Promise<Blob>>();
+
+export function clearPollyBlobCache() {
+  pollyBlobCache.clear();
+}
+
 export async function synthesizePolly(
   text: string,
   voiceId: string = "Matthew",
   engine: "standard" | "neural" = "neural",
   rate = 1
 ): Promise<Blob> {
-  const response = await fetch("/api/tts/polly", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, voiceId, engine, rate }),
-  });
+  const cacheKey = `${text}|${voiceId}|${engine}|${rate}`;
+  let promise = pollyBlobCache.get(cacheKey);
+  if (!promise) {
+    promise = (async () => {
+      const response = await fetch("/api/tts/polly", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voiceId, engine, rate }),
+      });
 
-  if (!response.ok) {
-    const errorData = (await response.json().catch(() => ({}))) as { error?: string };
-    // Surface the real backend error (e.g. missing AWS credentials) instead of
-    // silently degrading. The caller's TTS engine shows it to the user.
-    throw new Error(errorData?.error || `Polly backend error (${response.status})`);
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => ({}))) as { error?: string };
+        // Surface the real backend error (e.g. missing AWS credentials) instead of
+        // silently degrading. The caller's TTS engine shows it to the user.
+        throw new Error(errorData?.error || `Polly backend error (${response.status})`);
+      }
+
+      return await response.blob();
+    })();
+    pollyBlobCache.set(cacheKey, promise);
   }
-
-  return await response.blob();
+  return promise;
 }

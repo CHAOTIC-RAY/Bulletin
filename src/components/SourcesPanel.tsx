@@ -265,7 +265,7 @@ export default function SourcesPanel({ onChanged }: Props) {
                       <button
                         key={s.feedUrl}
                         onClick={() => toggle(s.feedUrl)}
-                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs text-left transition-all ${
+                        className={`flex items-center justify-between p-2.5 rounded-none border-2 text-xs text-left transition-all ${
                           on
                             ? "bg-amber-500/10 border-amber-500/30 text-white"
                             : "bg-black/30 border-white/5 text-neutral-400 hover:text-neutral-200"
@@ -295,10 +295,10 @@ export default function SourcesPanel({ onChanged }: Props) {
 
       {/* Custom Subscriptions Section */}
       {customSubs.length > 0 && (
-        <div className="p-4 rounded-2xl bg-neutral-900/80 border border-white/10 space-y-3">
+        <div className="p-4 rounded-none bg-neutral-900/80 border-2 border-white/10 space-y-3">
           <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
             <h4 className="text-sm font-extrabold text-white">Custom Subscriptions</h4>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/10 text-neutral-300">
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-none border border-white/20 bg-white/10 text-neutral-300">
               {customSubs.length} Added
             </span>
           </div>
@@ -309,7 +309,7 @@ export default function SourcesPanel({ onChanged }: Props) {
               return (
                 <div
                   key={s.id}
-                  className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border ${
+                  className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-none border-2 ${
                     on ? "bg-white/10 border-white/20" : "bg-white/5 border-white/10 opacity-70"
                   }`}
                 >
@@ -340,11 +340,11 @@ export default function SourcesPanel({ onChanged }: Props) {
             value={addUrl}
             onChange={(e) => setAddUrl(e.target.value)}
             placeholder="e.g. https://example.com/feed.xml or @MvCrisis"
-            className="flex-1 bg-neutral-900 border border-white/20 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-400"
+            className="flex-1 bg-neutral-900 border-2 border-white/20 rounded-none px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-400"
           />
           <button
             type="submit"
-            className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors shrink-0"
+            className="px-4 py-2.5 rounded-none border-2 border-neutral-950 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors shrink-0"
           >
             <Plus className="w-4 h-4" /> Add
           </button>

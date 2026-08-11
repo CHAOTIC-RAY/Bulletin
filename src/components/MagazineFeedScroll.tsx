@@ -173,7 +173,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, headerConten
                     }`}
                   >
                     {cat.label}
-                    <span className={`ml-1.5 text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? "bg-black/20 text-black font-black" : "text-neutral-500"}`}>
+                    <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-none border border-black/30 dark:border-white/30 ${isActive ? "bg-black/20 text-black font-black" : "text-neutral-500"}`}>
                       {cat.count}
                     </span>
                   </button>

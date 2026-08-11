@@ -227,12 +227,12 @@ export default function App() {
             <span className={`hidden sm:inline font-extrabold tracking-tight text-xl ${isImmersive ? 'text-white drop-shadow-md' : 'text-black dark:text-white'}`}>{t("app.name")}</span>
           </div>
 
-          <div className={`flex items-center p-1 rounded-full backdrop-blur-md shadow-sm border ${isImmersive ? 'bg-black/40 border-white/10' : 'bg-white/80 dark:bg-black/50 border-neutral-200 dark:border-neutral-800'}`}>
+          <div className={`flex items-center p-1 rounded-none backdrop-blur-md shadow-sm border-2 ${isImmersive ? 'bg-black/40 border-white/20' : 'bg-[#faf7ee] dark:bg-black/50 border-neutral-950 dark:border-neutral-200'}`}>
             <button
               onClick={() => setViewMode("immersive")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none text-sm font-bold transition-all ${
                 isImmersive 
-                  ? "bg-amber-500 text-black shadow-md" 
+                  ? "bg-amber-500 text-black shadow-none border-2 border-neutral-950" 
                   : "text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white"
               }`}
             >
@@ -241,9 +241,9 @@ export default function App() {
             </button>
             <button
               onClick={() => setViewMode("magazine")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-none text-sm font-bold transition-all ${
                 !isImmersive 
-                  ? "bg-black text-white dark:bg-white dark:text-black shadow-md" 
+                  ? "bg-black text-white dark:bg-white dark:text-black shadow-none border-2 border-neutral-950 dark:border-neutral-200" 
                   : "text-white/60 hover:text-white"
               }`}
             >
@@ -256,16 +256,16 @@ export default function App() {
             <button
               onClick={() => void loadFeeds()}
               disabled={refreshing}
-              className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${
-                isImmersive ? 'bg-black/40 hover:bg-black/60 text-white border-white/10 border' : 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700'
+              className={`w-10 h-10 rounded-none flex items-center justify-center backdrop-blur-md transition-all ${
+                isImmersive ? 'bg-black/40 hover:bg-black/60 text-white border-white/20 border-2' : 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 border-2 border-neutral-950 dark:border-neutral-700'
               }`}
             >
               <RefreshCw className={`w-5 h-5 ${refreshing ? "animate-spin text-amber-500" : ""}`} />
             </button>
             <button
               onClick={() => setScreen("setup")}
-              className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${
-                isImmersive ? 'bg-black/40 hover:bg-black/60 text-white border-white/10 border' : 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700'
+              className={`w-10 h-10 rounded-none flex items-center justify-center backdrop-blur-md transition-all ${
+                isImmersive ? 'bg-black/40 hover:bg-black/60 text-white border-white/20 border-2' : 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 border-2 border-neutral-950 dark:border-neutral-700'
               }`}
             >
               <Settings className="w-5 h-5" />
@@ -305,7 +305,7 @@ export default function App() {
           )
         ) : (
           <div className="h-[100dvh] flex items-center justify-center text-center px-8 flex-col gap-4">
-            <div className="p-4 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500">
+            <div className="p-4 rounded-none bg-amber-500/10 border-2 border-amber-500/35 text-amber-500">
               <SlidersHorizontal className="w-8 h-8" />
             </div>
             <div>
@@ -314,7 +314,7 @@ export default function App() {
             </div>
             <button
               onClick={() => setFilterOptions(DEFAULT_FILTER_OPTIONS)}
-              className="px-4 py-2 bg-amber-500 text-black font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md"
+              className="px-4 py-2 bg-amber-500 text-black font-extrabold text-xs uppercase tracking-wider rounded-none border-2 border-black"
             >
               Reset Filters
             </button>

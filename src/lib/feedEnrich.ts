@@ -14,7 +14,6 @@
 
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
-import { GoogleGenAI } from "@google/genai";
 import { isJunkFeedItem } from "./feedStorage";
 import { cleanArticleHtml } from "./feedSanitize";
 
@@ -160,32 +159,6 @@ function expandSummaryToFullArticle(title: string, summary: string, source: stri
   const p2 = `<p>In recent developments reported by <strong>${source}</strong> regarding <em>"${title}"</em>, market participants and industry analysts are assessing the broader strategic, financial, and regulatory implications. Key stakeholders have highlighted the importance of monitoring incoming data and operational benchmarks as these changes take effect.</p>`;
   const p3 = `<p>Expert forecasts suggest that evolving macroeconomic conditions and competitive dynamics will continue to shape upcoming sector updates. Further formal releases from institutional representatives and regulatory authorities are anticipated to clarify long-term strategic trajectories. (Reporting by ${source})</p>`;
   return `${p1}\n${p2}\n${p3}`;
-}
-
-async function generateFullArticleWithGemini(title: string, summary: string, source: string): Promise<string | undefined> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return undefined;
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `You are an expert news editor and financial reporter for a global journalism platform. Write a comprehensive, highly detailed 3-to-4 paragraph news article wrapped in HTML <p> tags for this story:
-Source: ${source}
-Title: ${title}
-Summary/Excerpt: ${summary || "N/A"}
-
-Requirements:
-1. Provide full journalistic context, economic or technology implications, market reactions, and key background details.
-2. Output strictly raw HTML <p> paragraphs. Do NOT wrap output in markdown code blocks (\`\`\`html) or include h1/h2 headings.`
-    });
-    const text = response.text?.trim();
-    if (text) {
-      return text.replace(/^```html\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
-    }
-  } catch (err) {
-    /* ignore rate limits or errors, fallback will take over */
-  }
-  return undefined;
 }
 
 async function fetchText(url: string, asJson = false): Promise<string> {
@@ -505,11 +478,10 @@ function parseFeedXml(xml: string, feedUrl: string): { title: string; link?: str
     return { title: feedTitle, items };
   }
 
-  const channel = xml.match(/<channel[^>]*>([\s\S]*?)<\/channel>/i)?.[1] || xml;
-  const feedTitle = stripTags(channel.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "Feed");
-  const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/gi;
+  const feedTitle = stripTags(xml.match(/<channel[\s\S]*?<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || xml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "Feed");
+  const itemRegex = /<item\b[^>]*>([\s\S]*?)<\/item>/gi;
   let m: RegExpExecArray | null;
-  while ((m = itemRegex.exec(channel))) {
+  while ((m = itemRegex.exec(xml))) {
     const b = m[1];
     const title = stripTags(b.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "Untitled");
     let link =
@@ -810,6 +782,7 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
     async (it, index) => {
       const isGuardian = it.link.includes("theguardian.com");
       const isPsm = it.link.includes("psmnews.mv");
+      const isDw = it.link.includes("dw.com");
       let imageUrl = it.imageUrl;
       let content = it.content;
 
@@ -828,8 +801,8 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
         /continue reading|full report is here|this blog is now closed|read the full|read more/i.test(content) ||
         isBloomberg;
 
-      let needsImage = isLowResImg || isGuardian || isPsm || isBloomberg;
-      let needsContent = isShortContent || isGuardian || isPsm || isBloomberg;
+      let needsImage = isLowResImg || isGuardian || isPsm || isBloomberg || isDw;
+      let needsContent = isShortContent || isGuardian || isPsm || isBloomberg || isDw;
 
       let images: string[] = imageUrl ? [imageUrl] : [];
       if ((needsImage || needsContent) && !isBloomberg) {
@@ -842,13 +815,7 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
       // Re-evaluate content completeness
       needsContent = !content || stripTags(content).length < 500 || isBloomberg;
       if (needsContent) {
-        // Use Gemini AI for top items to generate detailed full news report, fallback for rest
-        const aiArticle = index < 5 ? await generateFullArticleWithGemini(it.title, it.summary || "", raw.title || host) : undefined;
-        if (aiArticle) {
-          content = aiArticle;
-        } else {
-          content = expandSummaryToFullArticle(it.title, it.summary || "", raw.title || host);
-        }
+        content = expandSummaryToFullArticle(it.title, it.summary || "", raw.title || host);
       }
 
       // Ensure main image URL is synchronized with extracted images if missing

@@ -86,7 +86,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-neutral-900/80 backdrop-blur-md">
             <button
               onClick={handleClose}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center justify-center"
+              className="p-2 rounded-none border-2 border-white/20 bg-white/10 text-white transition-colors flex items-center justify-center"
               title="Close Brief"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -94,7 +94,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
             <span className="text-xs font-bold uppercase tracking-widest text-amber-400">⚡ {t("brief.title")}</span>
             <button
               onClick={toggleListen}
-              className={`px-4 py-2 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition-colors ${
+              className={`px-4 py-2 rounded-none border-2 border-neutral-950 dark:border-neutral-200 text-xs font-extrabold flex items-center gap-1.5 transition-colors ${
                 playing ? "bg-red-500 text-white" : "bg-amber-500 hover:bg-amber-400 text-black"
               }`}
             >
@@ -103,7 +103,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-5 md:p-8 max-w-3xl mx-auto w-full space-y-6 scrollbar-none">
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200">
+            <div className="p-4 rounded-none bg-amber-500/10 border-2 border-amber-500/30 text-amber-200">
               <p className="text-sm font-semibold leading-relaxed">{brief.lead}</p>
             </div>
             {brief.sections.map((s) => (
@@ -115,7 +115,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
                 <p className="text-xs text-neutral-400 italic">{s.intro}</p>
                 <ul className="space-y-3">
                   {s.items.map((it) => (
-                    <li key={it.id} className="border border-white/10 bg-neutral-900/60 rounded-2xl p-4 space-y-1 hover:border-amber-500/30 transition-colors">
+                    <li key={it.id} className="border-2 border-white/15 bg-neutral-900/60 rounded-none p-4 space-y-1 hover:border-amber-500/40 transition-colors">
                       <p className="font-bold text-sm text-white leading-snug">{it.headline}</p>
                       <p className="text-xs text-neutral-300 leading-relaxed">{it.detail}</p>
                     </li>
@@ -140,7 +140,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
         <button
           onClick={() => setInternalOpen(true)}
           dir={isRtl ? "rtl" : "ltr"}
-          className={`w-full text-left bg-neutral-900 border border-white/10 rounded-2xl p-4 hover:border-amber-400/40 transition ${isRtl ? "font-thaana text-right" : ""}`}
+          className={`w-full text-left bg-neutral-900 border-2 border-white/15 rounded-none p-4 hover:border-amber-400/50 transition ${isRtl ? "font-thaana text-right" : ""}`}
         >
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
