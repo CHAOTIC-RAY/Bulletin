@@ -6,8 +6,8 @@ import {
   saveFeedItems,
   applySelectedFeedSources,
   getFeedSubscriptions,
+  getTopicFeedGroups,
   isFeedSubscriptionEnabled,
-  TOPIC_FEED_GROUPS,
 } from "./lib/feedStorage";
 import { refreshAllSubscriptions, collectArticleImages } from "./lib/feedClient";
 import { isAdOrPromotional, matchItemTopic } from "./lib/feedEnrich";
@@ -77,11 +77,27 @@ export default function App() {
   const onSetupDone = (ui: LocaleCode, narr: string) => {
     setUiLocale(ui);
     setLocale(ui);
-    setNarrateLang(narr);
-    localStorage.setItem("bulletin_narrate_lang", narr);
-    
-    // Default all topics on
-    applySelectedFeedSources(TOPIC_FEED_GROUPS.map((g) => g.id));
+
+    // In Dhivehi mode there is no native OS voice on most devices, so default
+    // narration to the keyless dhivehi.mv cloud engine. The user can still
+    // switch engines in the TTS settings tab.
+    const isDv = ui === "dv";
+    const effectiveNarr = isDv ? "dv-MV" : narr;
+    setNarrateLang(effectiveNarr);
+    localStorage.setItem("bulletin_narrate_lang", effectiveNarr);
+    if (isDv) {
+      localStorage.setItem("bulletin_tts_engine", "dhivehi");
+      localStorage.setItem("bulletin_dhivehi_gender", "f");
+    }
+
+    // Default all topics on, but in Dhivehi mode only the "local" (Thaana)
+    // topic is enabled — international sources are locked down per locale.
+    const groups = getTopicFeedGroups(ui);
+    let topicIds = groups.map((g) => g.id);
+    if (isDv) {
+      topicIds = topicIds.filter((id) => id === "local");
+    }
+    applySelectedFeedSources(topicIds);
     setScreen("home");
     setItems(getFeedItems());
     

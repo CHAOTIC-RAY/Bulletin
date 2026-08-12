@@ -199,7 +199,8 @@ export default function TtsSettings() {
     packId?: string,
     _edgeId?: string,
     pollyId?: string,
-    customWebSpeechVoice?: string
+    customWebSpeechVoice?: string,
+    engineOverride?: TtsEngineType
   ) => {
     if (isPlayingTest) {
       ttsPlayer.stop();
@@ -208,14 +209,15 @@ export default function TtsSettings() {
       return;
     }
 
-    const testText =
-      "Hello! Welcome to Bulletin News. This is a live preview of your chosen speech voice.";
-
-    const testEngine = packId ? "piper" : pollyId ? "polly" : engine;
+    const testEngine = engineOverride || (packId ? "piper" : pollyId ? "polly" : engine);
     const testPiper = packId || piperVoice;
     if (pollyId) ttsPlayer.setPolly(pollyId, "neural");
 
     const targetVoice = customWebSpeechVoice || webSpeechVoiceName;
+    const testText =
+      testEngine === "dhivehi"
+        ? "ދިވެހިގެ ހޯގެ ގޮތަކޮޅަށް! ޙީ ދީ ބުꝁްގުން ގޮތްގައް ނޑިކުމާއޭކެވާ އުފެދިޏޯ. މޙައްގތުނާ ކުށހެ، މުޅޔޔޔަރާ އެޅޔމަ ކުހެ. ޙިރޏޙިބް ދިވެހިއެމފލާގުގެ މައ އުފައްދާފައިވާ އުފެއްދުމެއް!" :
+        "Hello! Welcome to Bulletin News. This is a live preview of your chosen speech voice.";
 
     ttsPlayer.setCallbacks({
       onPlay: () => {
@@ -350,10 +352,115 @@ export default function TtsSettings() {
               <div className="w-6 h-6 rounded-full border border-white/20 shrink-0" />
             )}
           </button>
+
+          {/* Dhivehi (Keyless dhivehi.mv proxy) Engine */}
+          <button
+            type="button"
+            onClick={() => handleSelectEngine("dhivehi")}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 active:bg-white/10 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                {" "}
+                <Globe className="w-5 h-5" />{" "}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white">
+                    Keyless Dhivehi (dhivehi.mv)
+                  </span>
+                  {engine === "dhivehi" && (
+                    <span className="text-[9px] bg-amber-500 text-black px-2 py-0.5 rounded-full font-extrabold">
+                      ACTIVE
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-neutral-400 truncate mt-0.5">
+                  Common Voice-based Dhivehi TTS. No API key, no download.
+                </p>
+              </div>
+            </div>
+            {engine === "dhivehi" ? (
+              <div className="w-6 h-6 rounded-full bg-amber-500 text-black flex items-center justify-center shrink-0">
+                <Check className="w-4 h-4 stroke-[3]" />
+              </div>
+            ) : (
+              <div className="w-6 h-6 rounded-full border border-white/20 shrink-0" />
+            )}
+          </button>
         </div>
       </div>
 
-      {/* WEBSPEECH SYSTEM VOICES SECTION */}
+      {/* Dhivehi Engine Section */}
+      {engine === "dhivehi" && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-amber-400" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-amber-400">
+                Dhivehi Voice (Keyless)
+              </h3>
+            </div>
+            <span className="text-xs text-neutral-400">
+              Powered by dhivehi.mv · Malé, MV
+            </span>
+          </div>
+
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs text-amber-200/90 flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <span>
+              This uses the{" "}
+              <a
+                href="https://dhivehi.mv/tools/tts/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-amber-400"
+              >
+                dhivehi.mv Common Voice TTS
+              </a>{" "}
+              service via a keyless Worker proxy. No login or API key required.
+              Audio is streamed as MP3 and played through your device speakers.
+            </span>
+          </div>
+
+          {/* Gender selector */}\{" "}
+          <div className="space-y-2">
+            {" "}
+            <label className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+              Voice Gender
+            </label>
+            <select
+              value={localStorage.getItem("bulletin_dhivehi_gender") || "f"}
+              onChange={(e) => {
+                const g = e.target.value as "m" | "f";
+                ttsPlayer.setDhivehiGender(g);
+              }}
+              className="w-full bg-neutral-900 text-white text-sm rounded-xl px-4 py-3 border border-white/10 focus:border-amber-500 focus:outline-none"
+            >
+              {" "}
+              <option value="f">Female (Default)</option>
+              <option value="m">Male</option>
+            </select>
+          </div>
+
+          {/* Test button */}\{" "}
+          <button
+            onClick={() =>
+              handleTestVoice(undefined, undefined, undefined, undefined, "dhivehi")
+            }
+            className="w-full p-3 rounded-xl bg-white/10 text-white hover:bg-white/20 active:scale-[0.98] text-xs font-bold flex items-center justify-center gap-2 transition-all"
+          >
+            {" "}
+            {isPlayingTest ? (
+              <Square className="w-3.5 h-3.5 fill-current" />
+            ) : (
+              <Play className="w-3.5 h-3.5 fill-current" />
+            )}{" "}
+            {isPlayingTest ? "Stop Preview" : "Test Dhivehi Voice"}
+          </button>
+        </div>
+      )}{" "}
+
       {engine === "webspeech" && (
         <div className="space-y-4 pt-2">
           <div className="flex items-center justify-between">

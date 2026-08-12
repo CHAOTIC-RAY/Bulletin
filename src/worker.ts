@@ -151,6 +151,50 @@ async function handleApi(request: Request, env: any): Promise<Response> {
     }
   }
 
+  // Keyless Dhivehi TTS via dhivehi.mv (Common Voice-based). Proxies the audio
+  // stream from the browser so no CORS/API-key is needed. Falls back to 502 if
+  // the upstream is unreachable. `q` = Thaana text (URL-encoded), `g` = gender
+  // (m=male, f=female), `lang` = locale tag (ignored upstream, kept for parity).
+  if (url.pathname === "/api/tts/dv" && request.method === "GET") {
+    const text = url.searchParams.get("q");
+    if (!text) {
+      return Response.json({ error: "Text (q) is required" }, { status: 400 });
+    }
+    const gender = url.searchParams.get("g") || "f";
+    try {
+      const upstream = await fetch(
+        `https://dhivehi.mv/tools/tts/data/?g=${encodeURIComponent(gender)}&q=${encodeURIComponent(text)}`,
+        {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept: "audio/mpeg, audio/*, */*",
+          },
+          signal: AbortSignal.timeout(15000),
+        }
+      );
+      if (!upstream.ok) {
+        return Response.json(
+          { error: `Dhivehi TTS upstream returned ${upstream.status}` },
+          { status: 502, headers: { "Access-Control-Allow-Origin": "*" } }
+        );
+      }
+      return new Response(upstream.body, {
+        headers: {
+          "Content-Type": "audio/mpeg",
+          "Cache-Control": "public, max-age=3600",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Range",
+        },
+      });
+    } catch (error: any) {
+      return Response.json(
+        { error: error?.message || "Dhivehi TTS failed" },
+        { status: 502, headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
+  }
+
   return Response.json({ error: "Not found" }, { status: 404 });
 }
 

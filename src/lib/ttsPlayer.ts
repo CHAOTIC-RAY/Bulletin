@@ -11,7 +11,7 @@ import { getWebSpeechVoices, pickVoice, prepareTextForNaturalSpeech } from "./we
 import { synthesizePolly } from "./pollyEngine";
 import { cleanTtsText } from "./feedSanitize";
 
-export type TtsEngineType = "webspeech" | "piper" | "polly";
+export type TtsEngineType = "webspeech" | "piper" | "polly" | "dhivehi";
 
 export interface TtsCallbacks {
   onSubtitle?: (text: string) => void;
@@ -52,7 +52,7 @@ export class BulletinTts {
   public loadSettings() {
     if (typeof localStorage !== "undefined") {
       const savedEngine = localStorage.getItem("bulletin_tts_engine") as TtsEngineType;
-      if (savedEngine === "webspeech" || savedEngine === "piper" || savedEngine === "polly") this.engine = savedEngine;
+      if (savedEngine === "webspeech" || savedEngine === "piper" || savedEngine === "polly" || savedEngine === "dhivehi") this.engine = savedEngine;
 
       const savedPiper = localStorage.getItem("bulletin_piper_voice");
       if (savedPiper) this.piperPackId = savedPiper;
@@ -137,6 +137,8 @@ export class BulletinTts {
       await this.playPiper(sentences, playId);
     } else if (this.engine === "polly") {
       await this.playPolly(sentences, playId);
+    } else if (this.engine === "dhivehi") {
+      await this.playDhivehi(sentences, playId);
     } else {
       this.playWebSpeech(sentences, playId);
     }
@@ -219,6 +221,87 @@ export class BulletinTts {
     } catch (err: any) {
       console.warn("Polly TTS failed:", err);
       this.cb.onError?.(err?.message || "Polly TTS failed");
+    }
+  }
+
+  // --- Dhivehi TTS Playback (keyless proxy of dhivehi.mv /tools/tts) ---
+  // Streams MP3 audio from the Worker's /api/tts/dv endpoint (which itself
+  // proxies dhivehi.mv, avoiding CORS). No API keys / logins required.
+  private dhivehiGender: "m" | "f" = "f";
+  public setDhivehiGender(g: "m" | "f") {
+    this.dhivehiGender = g;
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("bulletin_dhivehi_gender", g);
+    }
+  }
+
+  private async fetchDhivehiAudio(text: string): Promise<Blob> {
+    const params = new URLSearchParams({ q: text, g: this.dhivehiGender });
+    const res = await fetch(`/api/tts/dv?${params.toString()}`, {
+      headers: { Accept: "audio/mpeg" },
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({ error: "" }))) as { error?: string };
+      throw new Error(err?.error || `Dhivehi TTS error ${res.status}`);
+    }
+    return res.blob();
+  }
+
+  private async playDhivehi(sentences: string[], playId: number) {
+    // dhivehi.mv has a practical per-request length limit, so chunk the text.
+    const MAX_CHARS = 500;
+    const chunks: string[] = [];
+    let buf = "";
+    for (const s of sentences) {
+      if (buf && buf.length + s.length > MAX_CHARS) {
+        chunks.push(buf);
+        buf = "";
+      }
+      buf += (buf ? " " : "") + s;
+    }
+    if (buf) chunks.push(buf);
+
+    try {
+      let ci = 0;
+      const playNextChunk = async () => {
+        if (!this.playing || playId !== this.currentPlayId || ci >= chunks.length) {
+          if (playId === this.currentPlayId) {
+            this.playing = false;
+            this.cb.onEnded?.();
+          }
+          return;
+        }
+        const text = chunks[ci];
+        this.cb.onSubtitle?.(text);
+        try {
+          const blob = await this.fetchDhivehiAudio(text);
+          if (!this.playing || playId !== this.currentPlayId) return;
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.volume = Math.min(1, Math.max(0, this.volume));
+          this.currentAudio = audio;
+          audio.onended = () => {
+            URL.revokeObjectURL(url);
+            if (!this.playing || playId !== this.currentPlayId) return;
+            ci++;
+            playNextChunk();
+          };
+          audio.onerror = () => {
+            URL.revokeObjectURL(url);
+            if (!this.playing || playId !== this.currentPlayId) return;
+            this.cb.onError?.("Dhivehi audio playback failed");
+          };
+          await audio.play();
+        } catch (e: any) {
+          console.warn("Dhivehi TTS synthesis failed:", e);
+          if (!this.playing || playId !== this.currentPlayId) return;
+          this.cb.onError?.(e?.message || "Dhivehi TTS failed");
+        }
+      };
+      await playNextChunk();
+    } catch (err: any) {
+      console.warn("Dhivehi TTS failed:", err);
+      this.cb.onError?.(err?.message || "Dhivehi TTS failed");
     }
   }
 
