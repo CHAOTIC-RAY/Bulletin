@@ -2,7 +2,7 @@
 // Keeps the FeedItem model, curated Maldives + international catalogs, and
 // localStorage-backed subscriptions/items so the app runs with no backend.
 
-import { getLocale } from "./i18n";
+import { getLocale, getContentLocale } from "./i18n";
 
 // Drop non-article "noise" items (interactive quizzes, guess-the-player games,
 // polls, etc.) so the feed shows real news. e.g. BBC Sport's recurring
@@ -87,7 +87,7 @@ const SEE_MV_EN: Omit<FeedSubscription, "id" | "addedAt"> = {
 // Maldives local sources. Sun.mv (Dhivehi) is swapped for see.mv (English) when
 // the UI language is English, so English readers never get the Dhivehi edition.
 // In Dhivehi mode the catalog is locked to direct Thaana sources only.
-export function getMaldivesDefaults(locale: "en" | "dv" = getLocale()): Omit<FeedSubscription, "id" | "addedAt">[] {
+export function getMaldivesDefaults(locale: "en" | "dv" = getContentLocale()): Omit<FeedSubscription, "id" | "addedAt">[] {
   if (locale === "dv") return DhivehiThaanaSources;
   const base: Omit<FeedSubscription, "id" | "addedAt">[] = [
     { title: "MvCrisis (Telegram)", siteUrl: "https://t.me/s/MvCrisis", feedUrl: "https://t.me/MvCrisis" },
@@ -220,7 +220,7 @@ const INTERNATIONAL_COUNTRY_GROUPS: { country: string; flag: string; feeds: Omit
 // locked to direct Thaana sources (getMaldivesDefaults("dv")) and all
 // international/region groups are hidden so the UI never leaks non-Thaana
 // content. `getLocale()` is read at call time, so a language switch recomputes.
-export function getCountryFeedGroups(locale: "en" | "dv" = getLocale()): { country: string; flag: string; feeds: Omit<FeedSubscription, "id" | "addedAt">[] }[] {
+export function getCountryFeedGroups(locale: "en" | "dv" = getContentLocale()): { country: string; flag: string; feeds: Omit<FeedSubscription, "id" | "addedAt">[] }[] {
   const local: { country: string; flag: string; feeds: Omit<FeedSubscription, "id" | "addedAt">[] } = {
     country: "Maldives (Local)",
     flag: "🇲🇼",
@@ -232,7 +232,7 @@ export function getCountryFeedGroups(locale: "en" | "dv" = getLocale()): { count
 }
 
 /** International sources (non-Maldives), locale-aware. Empty in dv mode. */
-export function getInternationalFeedOptions(locale: "en" | "dv" = getLocale()): Omit<FeedSubscription, "id" | "addedAt">[] {
+export function getInternationalFeedOptions(locale: "en" | "dv" = getContentLocale()): Omit<FeedSubscription, "id" | "addedAt">[] {
   if (locale === "dv") return [];
   return INTERNATIONAL_COUNTRY_GROUPS.flatMap((g) => g.feeds);
 }
@@ -240,7 +240,7 @@ export function getInternationalFeedOptions(locale: "en" | "dv" = getLocale()): 
 export type TopicFeedGroup = { id: string; label: string; feeds: (locale: "en" | "dv") => Omit<FeedSubscription, "id" | "addedAt">[] };
 
 /** Topic groups for onboarding, locale-aware. In dv mode only "local" is exposed. */
-export function getTopicFeedGroups(locale: "en" | "dv" = getLocale()): TopicFeedGroup[] {
+export function getTopicFeedGroups(locale: "en" | "dv" = getContentLocale()): TopicFeedGroup[] {
   const groups: TopicFeedGroup[] = [
     { id: "local", label: "Maldives (Local)", feeds: (l) => getMaldivesDefaults(l) },
   ];
@@ -371,7 +371,7 @@ export function removeFeedSubscription(id: string): FeedSubscription[] {
 
 /** All curated sources grouped by country/region, for the management UI.
  *  Locale-aware: in Dhivehi mode only Maldives Thaana sources are listed. */
-export function getAllCuratedSources(locale: "en" | "dv" = getLocale()): { group: string; sources: Omit<FeedSubscription, "id" | "addedAt">[] }[] {
+export function getAllCuratedSources(locale: "en" | "dv" = getContentLocale()): { group: string; sources: Omit<FeedSubscription, "id" | "addedAt">[] }[] {
   return getCountryFeedGroups(locale).map((g) => ({
     group: `${g.flag} ${g.country}`,
     sources: g.feeds,

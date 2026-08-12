@@ -89,3 +89,20 @@ export function t(key: string, locale: LocaleCode = getLocale()): string {
 export function localeIsRtl(locale: LocaleCode): boolean {
   return isRtlLang(locale);
 }
+
+/**
+ * Content/news locale is intentionally separate from the UI locale. A user can
+ * keep the app UI in English while reading Thaana (Dhivehi) news sources and
+ * listening to Dhivehi TTS. Defaults to the UI locale for backward compat.
+ */
+export function getContentLocale(): "en" | "dv" {
+  try {
+    const v = localStorage.getItem("bulletin_content_locale");
+    return (v as "en" | "dv") || getLocale();
+  } catch {
+    return "en";
+  }
+}
+export function setContentLocale(code: "en" | "dv"): void {
+  localStorage.setItem("bulletin_content_locale", code);
+}

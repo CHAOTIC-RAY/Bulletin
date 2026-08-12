@@ -216,7 +216,7 @@ export default function TtsSettings() {
     const targetVoice = customWebSpeechVoice || webSpeechVoiceName;
     const testText =
       testEngine === "dhivehi"
-        ? "ދިވެހިގެ ހޯގެ ގޮތަކޮޅަށް! ޙީ ދީ ބުꝁްގުން ގޮތްގައް ނޑިކުމާއޭކެވާ އުފެދިޏޯ. މޙައްގތުނާ ކުށހެ، މުޅޔޔޔަރާ އެޅޔމަ ކުހެ. ޙިރޏޙިބް ދިވެހިއެމފލާގުގެ މައ އުފައްދާފައިވާ އުފެއްދުމެއް!" :
+        ? "ޙީ ދީ ބުގުން ގޮތްގައް ނޑިކުމާއޭކެވާ އުފެދިޏޯ. މޙައްގތުނާ ކުށހެ، މުޅޔޔޔަރާ އެޅޔމަ ކުހެ." :
         "Hello! Welcome to Bulletin News. This is a live preview of your chosen speech voice.";
 
     ttsPlayer.setCallbacks({

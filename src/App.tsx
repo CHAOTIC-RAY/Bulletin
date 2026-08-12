@@ -8,10 +8,11 @@ import {
   getFeedSubscriptions,
   getTopicFeedGroups,
   isFeedSubscriptionEnabled,
+  saveFeedSubscriptions,
 } from "./lib/feedStorage";
 import { refreshAllSubscriptions, collectArticleImages } from "./lib/feedClient";
 import { isAdOrPromotional, matchItemTopic } from "./lib/feedEnrich";
-import { getLocale, setLocale, localeIsRtl, LocaleCode, t } from "./lib/i18n";
+import { getLocale, setLocale, getContentLocale, setContentLocale, localeIsRtl, LocaleCode, t } from "./lib/i18n";
 import BulletinFeedScroll from "./components/BulletinFeedScroll";
 import MagazineFeedScroll from "./components/MagazineFeedScroll";
 import DailyBriefCard from "./components/DailyBriefCard";
@@ -75,27 +76,44 @@ export default function App() {
   };
 
   const onSetupDone = (ui: LocaleCode, narr: string) => {
-    setUiLocale(ui);
-    setLocale(ui);
-
-    // In Dhivehi mode there is no native OS voice on most devices, so default
-    // narration to the keyless dhivehi.mv cloud engine. The user can still
-    // switch engines in the TTS settings tab.
     const isDv = ui === "dv";
-    const effectiveNarr = isDv ? "dv-MV" : narr;
-    setNarrateLang(effectiveNarr);
-    localStorage.setItem("bulletin_narrate_lang", effectiveNarr);
+
+    // Snapshot the content locale *before* this call's writes so we can detect a
+    // real switch and clear stale feeds that would otherwise linger.
+    const prevContent = getContentLocale();
+
+    // Dhivehi is a *content/news* choice, not a UI choice. The UI stays in
+    // English (LTR) so only the news sources + TTS switch to Dhivehi/Thaana.
+    // This avoids translating every UI label while still giving a purely
+    // Dhivehi news-reading + listening experience.
     if (isDv) {
+      setContentLocale("dv");
+      localStorage.setItem("bulletin_narrate_lang", "dv-MV");
       localStorage.setItem("bulletin_tts_engine", "dhivehi");
       localStorage.setItem("bulletin_dhivehi_gender", "f");
+      setNarrateLang("dv-MV");
+    } else {
+      setContentLocale("en");
+      setUiLocale(ui); // English UI
+      setLocale(ui);
+      setNarrateLang(narr);
+      localStorage.setItem("bulletin_narrate_lang", narr);
     }
 
-    // Default all topics on, but in Dhivehi mode only the "local" (Thaana)
-    // topic is enabled — international sources are locked down per locale.
-    const groups = getTopicFeedGroups(ui);
+    // Re-snapshot to confirm whether the content locale actually changed.
+    const nowContent = getContentLocale();
+    const groups = getTopicFeedGroups();
     let topicIds = groups.map((g) => g.id);
     if (isDv) {
       topicIds = topicIds.filter((id) => id === "local");
+    }
+
+    // When the content locale changes, clear stale subscriptions + items so the
+    // feed catalog re-derives from the new locale's topic set instead of
+    // leaving English feeds visible under a Dhivehi news mode.
+    if (prevContent !== nowContent) {
+      saveFeedSubscriptions([]);
+      saveFeedItems([]);
     }
     applySelectedFeedSources(topicIds);
     setScreen("home");
