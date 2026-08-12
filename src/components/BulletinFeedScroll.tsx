@@ -6,7 +6,6 @@ import AutoImageReel from "./AutoImageReel";
 import { BulletinTts } from "../lib/ttsPlayer";
 import { Volume2, VolumeX, SlidersHorizontal } from "lucide-react";
 import { cleanArticleHtml as sanitize, cleanTtsText, extractImagesFromHtml } from "../lib/feedSanitize";
-import { proxied } from "../lib/imgProxy";
 
 interface Props {
   items: FeedItem[];
@@ -236,7 +235,7 @@ export default function BulletinFeedScroll({
               <AutoImageReel images={reelImages} className="z-0" />
             ) : item.imageUrl ? (
               <img
-                src={proxied(item.imageUrl) || item.imageUrl}
+                src={item.imageUrl}
                 alt=""
                 referrerPolicy="no-referrer"
                 loading="lazy"

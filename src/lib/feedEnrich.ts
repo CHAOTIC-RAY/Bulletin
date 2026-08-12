@@ -955,6 +955,7 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
       try {
         const isGuardian = it.link.includes("theguardian.com");
         const isPsm = it.link.includes("psmnews.mv");
+        const isDw = it.link.includes("dw.com");
         let imageUrl = it.imageUrl;
         let content = it.content;
 
@@ -977,8 +978,8 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
           /continue reading|full report is here|this blog is now closed|read the full|read more/i.test(content) ||
           isBloomberg;
 
-        let needsImage = isLowResImg || isGuardian || isPsm || isBloomberg;
-        let needsContent = isShortContent || isGuardian || isPsm || isBloomberg;
+        let needsImage = isLowResImg || isGuardian || isPsm || isBloomberg || isDw;
+        let needsContent = isShortContent || isGuardian || isPsm || isBloomberg || isDw;
 
         // Google News fallback items already carry a brand favicon image and a
         // valid summary; their link points to a GNews redirect page that hangs

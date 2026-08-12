@@ -5,7 +5,6 @@ import { BulletinTts } from "../lib/ttsPlayer";
 import { t, getLocale } from "../lib/i18n";
 import { createPortal } from "react-dom";
 import { cleanArticleHtml, cleanTtsText } from "../lib/feedSanitize";
-import { proxied } from "../lib/imgProxy";
 
 interface Props {
   item: FeedItem | null;
@@ -75,7 +74,7 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
         <h1 dir={dir} className={`text-2xl font-bold leading-tight mb-4 ${dir === "rtl" ? "font-thaana" : ""}`}>{item.title}</h1>
 
         {item.imageUrl && (
-          <img src={proxied(item.imageUrl) || item.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full rounded-none border-2 border-neutral-950 dark:border-neutral-700 mb-4 object-cover" />
+          <img src={item.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full rounded-none border-2 border-neutral-950 dark:border-neutral-700 mb-4 object-cover" />
         )}
 
         {item.content ? (

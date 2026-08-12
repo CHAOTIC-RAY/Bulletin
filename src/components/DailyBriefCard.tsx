@@ -4,7 +4,6 @@ import { getBriefSettings, filterItemsForBrief, getAvailableSourceTitles } from 
 import { buildDailyBrief, type BriefArticleInput, type GeneratedDailyBrief } from "../lib/generateNewsBrief";
 import { BulletinTts } from "../lib/ttsPlayer";
 import { t, getLocale } from "../lib/i18n";
-import { translateToLocale } from "../lib/translateClient";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Volume2, VolumeX, Sparkles } from "lucide-react";
 
@@ -43,9 +42,6 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
   const locale = getLocale();
   const [brief, setBrief] = useState<GeneratedDailyBrief | null>(null);
   const [briefSource, setBriefSource] = useState<string>("fallback");
-  // Translated display strings for Dhivehi mode (English source kept for TTS).
-  const [trLead, setTrLead] = useState("");
-  const [trSections, setTrSections] = useState<GeneratedDailyBrief["sections"] | null>(null);
 
   const articles = useMemo<BriefArticleInput[]>(() => {
     const today = Date.now();
@@ -92,55 +88,6 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
     };
   }, [articles]);
 
-  useEffect(() => {
-    let alive = true;
-    if (locale !== "dv" || !brief) {
-      setTrLead(brief?.lead || "");
-      setTrSections(brief?.sections || null);
-      return;
-    }
-    // Translate the brief intro + every article headline/detail. The lead is
-    // NOT translated as a composite sentence (gtx echoes English back when the
-    // lead embeds an already-Dhivehi source). Instead we compose the lead from
-    // the already-translated item headlines below.
-    const all: string[] = [];
-    for (const s of brief.sections) {
-      all.push(s.intro);
-      for (const it of s.items) {
-        all.push(it.headline);
-        all.push(it.detail);
-      }
-    }
-    translateToLocale(all).then((tr) => {
-      if (!alive) return;
-      const safe = (orig: string) => tr[i++] ?? orig;
-      let i = 0;
-      const sections = brief.sections.map((s) => {
-        const intro = safe(s.intro);
-        const items = s.items.map((it) => ({
-          ...it,
-          headline: safe(it.headline),
-          detail: safe(it.detail),
-        }));
-        return { ...s, intro, items };
-      });
-      // Compose the lead from the translated headlines so it's fully Dhivehi.
-      const headlines = sections
-        .flatMap((s) => s.items.map((it) => it.headline))
-        .filter(Boolean)
-        .slice(0, 6);
-      const lead =
-        headlines.length > 0
-          ? `މިއަދު ތިޔަބޭފުޅުންގެ ފީޑްސް ހުރަސްކޮށް: ${headlines.join("؛ ")}.`
-          : brief.lead;
-      setTrLead(lead);
-      setTrSections(sections);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [brief, locale]);
-
   const ttsRef = useRef<BulletinTts | null>(null);
   const [playing, setPlaying] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
@@ -154,9 +101,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
   };
 
   if (!brief) return null;
-  const displayLead = trLead || brief.lead;
-  const displaySections = trSections || brief.sections;
-  const storyCount = displaySections.reduce((a, s) => a + s.items.length, 0);
+  const storyCount = brief.sections.reduce((a, s) => a + s.items.length, 0);
 
   const ensureTts = () => {
     if (!ttsRef.current) {
@@ -217,9 +162,9 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
           </div>
           <div className="flex-1 overflow-y-auto p-5 md:p-8 max-w-3xl mx-auto w-full space-y-6 scrollbar-none">
             <div className="p-4 rounded-none bg-amber-500/10 border-2 border-amber-500/30 text-amber-200">
-              <p className="text-sm font-semibold leading-relaxed">{displayLead}</p>
+              <p className="text-sm font-semibold leading-relaxed">{brief.lead}</p>
             </div>
-            {displaySections.map((s) => (
+            {brief.sections.map((s) => (
               <section key={s.source} className="space-y-3">
                 <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
                   <h3 className="text-xs font-extrabold uppercase tracking-widest text-amber-400">{s.source}</h3>

@@ -162,6 +162,7 @@ export const COUNTRY_FEED_GROUPS: { country: string; flag: string; feeds: Omit<F
     country: "Europe",
     flag: "🇪🇺",
     feeds: [
+      { title: "Deutsche Welle", siteUrl: "https://www.dw.com/", feedUrl: "https://rss.dw.com/rdf/rss-en-all" },
       { title: "France 24", siteUrl: "https://www.france24.com/en/", feedUrl: "https://www.france24.com/en/rss" },
       { title: "Euronews", siteUrl: "https://www.euronews.com/", feedUrl: "https://www.euronews.com/rss?format=mrss&level=theme&name=news" },
     ],

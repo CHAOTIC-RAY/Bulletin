@@ -46,13 +46,6 @@ function buildPrompt(brief: GeneratedDailyBrief): string {
     "- Rewrite each 'detail' to be a complete, informative sentence (max ~28 words). No clickbait, no 'read more'.",
     "- Rewrite each section 'intro' as one natural sentence summarizing that source's focus today.",
     "- Rewrite 'lead' as one punchy overview sentence covering the day's top stories.",
-    "STRICT FACT RULES — violation means your output is rejected:",
-    "- You may ONLY rephrase / clean the text already present in the draft. Do NOT add any new",
-    "  facts, entities, quotes, statistics, or analysis that are not in the draft brief.",
-    "- If the draft's detail/summary is thin or in another language, rephrase what IS there",
-    "  (or translate it faithfully) — never invent 'market participants', 'analysts', 'regulatory",
-    "  implications', 'macroeconomic conditions', or similar filler.",
-    "- If a detail is empty, use the headline as the detail. Do not elaborate.",
     "Respond with ONLY a JSON object, no markdown, no commentary.",
     "Draft brief:\n" + JSON.stringify(compact),
   ].join("\n");
@@ -76,55 +69,6 @@ function extractJson(text: string): any | null {
     }
     return null;
   }
-}
-
-function tokenizeWords(text: string): Set<string> {
-  return new Set(
-    text
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
-      .split(/\s+/)
-      .filter((w) => w.length > 2 && !/^(the|and|for|with|from|that|this|have|has|are|was|were|been|into|over|about|their|there|what|when|will|your|our|out|new|now|more|than|them|these|those|after|before)$/.test(w)),
-  );
-}
-
-// Guardrail against LLM fabrication: if a polished detail/intro/lead shares
-// almost no meaningful words with the source draft (title/summary), the model
-// likely invented facts. In that case we keep the source-faithful local text.
-function sourceOverlap(a: string, b: string): number {
-  const wa = tokenizeWords(a);
-  const wb = tokenizeWords(b);
-  if (!wa.size || !wb.size) return 1; // empty side → don't penalize
-  let shared = 0;
-  for (const w of wa) if (wb.has(w)) shared++;
-  return shared / Math.max(wa.size, wb.size);
-}
-
-function guardAgainstHallucination(local: GeneratedDailyBrief, polished: GeneratedDailyBrief): GeneratedDailyBrief {
-  const localSections = local.sections;
-  const out = { ...polished, sections: polished.sections.map((s, si) => {
-    const lsec = localSections[si];
-    const items = s.items.map((it, ji) => {
-      const f = lsec?.items[ji];
-      if (!f) return it;
-      const srcText = `${f.headline} ${f.detail}`;
-      // If the polished detail barely overlaps the source, it's invented → use local.
-      if (sourceOverlap(it.detail, srcText) < 0.25 && f.detail.trim().length > 10) {
-        return { ...it, detail: f.detail, headline: f.headline };
-      }
-      return it;
-    });
-    let intro = s.intro;
-    if (lsec && sourceOverlap(intro, lsec.items.map((i) => `${i.headline} ${i.detail}`).join(" ")) < 0.2) {
-      intro = lsec.intro;
-    }
-    return { ...s, intro, items };
-  }) };
-  // Guard the lead too.
-  if (sourceOverlap(polished.lead, local.sections.map((s) => s.items.map((i) => `${i.headline} ${i.detail}`).join(" ")).join(" ")) < 0.15) {
-    out.lead = local.lead;
-  }
-  return out;
 }
 
 function coerce(parsed: any, fallback: GeneratedDailyBrief): GeneratedDailyBrief | null {
@@ -189,8 +133,7 @@ export async function generateBrief(articles: BriefArticleInput[], dateKey: stri
     const parsed = extractJson(content);
     const polished = parsed ? coerce(parsed, local) : null;
     if (polished && polished.sections.length) {
-      const safe = guardAgainstHallucination(local, polished);
-      return { brief: safe, source: "groq" };
+      return { brief: polished, source: "groq" };
     }
     return { brief: local, source: "fallback", error: "groq_bad_json" };
   } catch (e: any) {
