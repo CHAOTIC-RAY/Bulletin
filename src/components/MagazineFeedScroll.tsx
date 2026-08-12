@@ -4,6 +4,8 @@ import { buildPersonalizedBrief, type PersonalizedBrief } from "../lib/briefServ
 import { getBriefSettings } from "../lib/feedStorage";
 import { BulletinTts } from "../lib/ttsPlayer";
 import { textDirection } from "../lib/textDirection";
+import { getLocale } from "../lib/i18n";
+import { translateToLocale } from "../lib/translateClient";
 import WeatherOverview from "./WeatherOverview";
 import { Bookmark, BookmarkCheck, ArrowUpRight, Newspaper, Globe, Sparkles, Volume2, VolumeX } from "lucide-react";
 
@@ -15,7 +17,9 @@ interface Props {
 }
 
 export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang }: Props) {
+  const locale = getLocale();
   const [pb, setPb] = useState<PersonalizedBrief | null>(null);
+  const [displayPb, setDisplayPb] = useState<PersonalizedBrief | null>(null);
   const [playing, setPlaying] = useState(false);
   const ttsRef = useRef<BulletinTts | null>(null);
   const [scopedCount, setScopedCount] = useState(0);
@@ -46,6 +50,48 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
       alive = false;
     };
   }, [items]);
+
+  // Translate the brief + article text into Dhivehi when the locale is dv.
+  // English source is kept (displayPb mirrors pb when not dv).
+  useEffect(() => {
+    let alive = true;
+    if (!pb) {
+      setDisplayPb(null);
+      return;
+    }
+    if (locale !== "dv") {
+      setDisplayPb(pb);
+      return;
+    }
+    const all: string[] = [pb.brief.lead];
+    for (const s of pb.brief.sections) {
+      all.push(s.intro);
+      for (const it of s.items) {
+        all.push(it.headline);
+        all.push(it.detail);
+      }
+    }
+    translateToLocale(all).then((tr) => {
+      if (!alive) return;
+      // Tolerate a short reply (don't discard everything on a partial miss).
+      let i = 0;
+      const safe = (orig: string) => tr[i++] ?? orig;
+      const lead = safe(pb.brief.lead);
+      const sections = pb.brief.sections.map((s) => {
+        const intro = safe(s.intro);
+        const items = s.items.map((it) => ({
+          ...it,
+          headline: safe(it.headline),
+          detail: safe(it.detail),
+        }));
+        return { ...s, intro, items };
+      });
+      setDisplayPb({ ...pb, brief: { ...pb.brief, lead, sections } });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pb, locale]);
 
   const ensureTts = () => {
     if (!ttsRef.current) {
@@ -87,6 +133,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
   ].join(" · ");
 
   const storyCount = pb ? pb.brief.sections.reduce((a, s) => a + s.items.length, 0) : 0;
+  const view = (displayPb ?? pb)!;
 
   return (
     <div className="relative min-h-[100dvh] h-[100dvh] w-full overflow-y-auto pt-20 pb-16 bg-[#f2eee3] dark:bg-[#131210] text-neutral-900 dark:text-neutral-100 font-sans selection:bg-amber-500 selection:text-black">
@@ -138,7 +185,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
                     IN THIS EDITION
                   </span>
                   <p className="text-xs text-neutral-700 dark:text-neutral-300 font-bold">
-                    {storyCount} stories • {pb.brief.sections.length} sources
+                    {storyCount} stories • {view.brief.sections.length} sources
                   </p>
                   <p className="text-[10px] italic text-neutral-500 dark:text-neutral-400">
                     Updated live from your feeds
@@ -179,14 +226,14 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
                   ★ TODAY'S LEAD
                 </span>
                 <p className="mt-2 font-serif font-bold text-lg sm:text-2xl leading-snug text-neutral-950 dark:text-white">
-                  {pb.brief.lead}
+                  {view.brief.lead}
                 </p>
               </div>
             </section>
 
             {/* --- BRIEF SECTIONS (the whole paper) --- */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-min">
-              {pb.brief.sections.map((section, idx) => {
+              {view.brief.sections.map((section, idx) => {
                 const isFeature = idx === 0;
                 return (
                   <article

@@ -105,6 +105,25 @@ async function startServer() {
     }
   });
 
+  // Keyless machine translation (Google gtx endpoint) for locale switching.
+  // Parity with the Cloudflare Worker route.
+  app.post("/api/translate", async (req, res) => {
+    try {
+      const { texts, target } = req.body || {};
+      if (!Array.isArray(texts) || !texts.length) {
+        return res.status(400).json({ error: "texts[] required" });
+      }
+      const tgt = target === "en" ? "en" : "dv";
+      const { translateBatch } = await import("./src/lib/translateLib");
+      const translated = await translateBatch(texts, tgt);
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      return res.json({ translated });
+    } catch (error: any) {
+      return res.status(502).json({ error: error?.message || "Translation failed" });
+    }
+  });
+
   // Weather overview for the Daily Paper tab. Maldives uses the official
   // Maldives Meteorological Service; other countries use Open-Meteo.
   app.get("/api/weather", async (req, res) => {

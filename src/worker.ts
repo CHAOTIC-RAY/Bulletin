@@ -129,6 +129,32 @@ async function handleApi(request: Request, env: any): Promise<Response> {
     }
   }
 
+  // Keyless machine translation (Google gtx endpoint) for locale switching.
+  // Used by Dhivehi mode to translate headlines/details/brief without an API key.
+  if (url.pathname === "/api/translate" && request.method === "POST") {
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    const texts = body?.texts;
+    const target = body?.target === "en" ? "en" : "dv";
+    if (!Array.isArray(texts) || !texts.length) {
+      return Response.json({ error: "texts[] required" }, { status: 400 });
+    }
+    try {
+      const { translateBatch } = await import("./lib/translateLib");
+      const translated = await translateBatch(texts, target);
+      return Response.json(
+        { translated },
+        { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+      );
+    } catch (error: any) {
+      return Response.json({ error: error?.message || "Translation failed" }, { status: 502 });
+    }
+  }
+
   // Weather overview for the Daily Paper tab. Maldives uses the official
   // Maldives Meteorological Service; other countries use Open-Meteo.
   if (url.pathname === "/api/weather" && request.method === "GET") {
