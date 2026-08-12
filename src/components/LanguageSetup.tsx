@@ -3,7 +3,8 @@ import { LocaleCode, getLocale } from "../lib/i18n";
 import TtsSettings from "./TtsSettings";
 import SourcesPanel from "./SourcesPanel";
 import BriefSettingsPanel from "./BriefSettingsPanel";
-import { Mic, Globe, Sliders, ArrowLeft, Newspaper, Check, ChevronRight, Sparkles } from "lucide-react";
+import WeatherSettingsPanel from "./WeatherSettingsPanel";
+import { Mic, Globe, Sliders, ArrowLeft, Newspaper, Check, ChevronRight, Sparkles, CloudSun } from "lucide-react";
 import type { FeedItem } from "../lib/feedStorage";
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
 export default function LanguageSetup({ onDone, items = [] }: Props) {
   const [uiLocale, setUiLocale] = useState<LocaleCode>(getLocale());
   const [narrateLang, setNarrateLang] = useState("en-US");
-  const [tab, setTab] = useState<"tts" | "language" | "sources" | "brief">("tts");
+  const [tab, setTab] = useState<"tts" | "language" | "sources" | "brief" | "weather">("tts");
 
   const handleComplete = () => {
     onDone(uiLocale, narrateLang);
@@ -103,6 +104,18 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
             <Sparkles className="w-3.5 h-3.5" />
             <span className="truncate">Daily Brief</span>
           </button>
+
+          <button
+            onClick={() => setTab("weather")}
+            className={`flex-1 py-2 px-2 rounded-none text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-2 ${
+              tab === "weather"
+                ? "bg-amber-500 text-black border-amber-600 font-extrabold"
+                : "text-neutral-400 hover:text-white border-transparent"
+            }`}
+          >
+            <CloudSun className="w-3.5 h-3.5" />
+            <span className="truncate">Weather</span>
+          </button>
         </div>
 
         {/* Tab Contents */}
@@ -177,6 +190,12 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
         {tab === "brief" && (
           <div className="flex-1">
             <BriefSettingsPanel items={items} onChanged={() => {}} />
+          </div>
+        )}
+
+        {tab === "weather" && (
+          <div className="flex-1">
+            <WeatherSettingsPanel />
           </div>
         )}
       </div>

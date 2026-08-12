@@ -129,6 +129,28 @@ async function handleApi(request: Request, env: any): Promise<Response> {
     }
   }
 
+  // Weather overview for the Daily Paper tab. Maldives uses the official
+  // Maldives Meteorological Service; other countries use Open-Meteo.
+  if (url.pathname === "/api/weather" && request.method === "GET") {
+    const code = url.searchParams.get("country") || "MV";
+    try {
+      const { fetchWeatherForCountry } = await import("./lib/weatherFetch");
+      const forecast = await fetchWeatherForCountry(code);
+      return new Response(JSON.stringify(forecast), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=1800",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    } catch (error: any) {
+      return Response.json(
+        { error: error?.message || "Weather fetch failed" },
+        { status: 502 }
+      );
+    }
+  }
+
   return Response.json({ error: "Not found" }, { status: 404 });
 }
 

@@ -105,6 +105,22 @@ async function startServer() {
     }
   });
 
+  // Weather overview for the Daily Paper tab. Maldives uses the official
+  // Maldives Meteorological Service; other countries use Open-Meteo.
+  app.get("/api/weather", async (req, res) => {
+    try {
+      const code = (typeof req.query.country === "string" && req.query.country) || "MV";
+      const { fetchWeatherForCountry } = await import("./src/lib/weatherFetch");
+      const forecast = await fetchWeatherForCountry(code);
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Cache-Control", "public, max-age=1800");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      return res.json(forecast);
+    } catch (error: any) {
+      return res.status(502).json({ error: error?.message || "Weather fetch failed" });
+    }
+  });
+
   // Health check
   app.get("/api/health", (_req, res) => {
     res.json({

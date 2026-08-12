@@ -4,6 +4,7 @@ import { buildPersonalizedBrief, type PersonalizedBrief } from "../lib/briefServ
 import { getBriefSettings } from "../lib/feedStorage";
 import { BulletinTts } from "../lib/ttsPlayer";
 import { textDirection } from "../lib/textDirection";
+import WeatherOverview from "./WeatherOverview";
 import { Bookmark, BookmarkCheck, ArrowUpRight, Newspaper, Globe, Sparkles, Volume2, VolumeX } from "lucide-react";
 
 interface Props {
@@ -165,6 +166,11 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
                 )}
               </div>
             </header>
+
+            {/* --- WEATHER OVERVIEW --- */}
+            <section className="mb-8">
+              <WeatherOverview />
+            </section>
 
             {/* --- LEAD STORY --- */}
             <section className="mb-8">
