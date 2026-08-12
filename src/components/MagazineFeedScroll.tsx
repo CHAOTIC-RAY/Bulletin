@@ -63,7 +63,11 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
       setDisplayPb(pb);
       return;
     }
-    const all: string[] = [pb.brief.lead];
+    // Translate the brief intro + every article headline/detail. The lead is
+    // NOT translated as a composite sentence (gtx echoes English back when the
+    // lead embeds an already-Dhivehi source). Instead we compose the lead from
+    // the already-translated item headlines below.
+    const all: string[] = [];
     for (const s of pb.brief.sections) {
       all.push(s.intro);
       for (const it of s.items) {
@@ -76,7 +80,6 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
       // Tolerate a short reply (don't discard everything on a partial miss).
       let i = 0;
       const safe = (orig: string) => tr[i++] ?? orig;
-      const lead = safe(pb.brief.lead);
       const sections = pb.brief.sections.map((s) => {
         const intro = safe(s.intro);
         const items = s.items.map((it) => ({
@@ -86,6 +89,15 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
         }));
         return { ...s, intro, items };
       });
+      // Compose the lead from the translated headlines so it's fully Dhivehi.
+      const headlines = sections
+        .flatMap((s) => s.items.map((it) => it.headline))
+        .filter(Boolean)
+        .slice(0, 6);
+      const lead =
+        headlines.length > 0
+          ? `މިއަދު ތިޔަބޭފުޅުންގެ ފީޑްސް ހުރަސްކޮށް: ${headlines.join("؛ ")}.`
+          : pb.brief.lead;
       setDisplayPb({ ...pb, brief: { ...pb.brief, lead, sections } });
     });
     return () => {
