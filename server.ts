@@ -105,6 +105,39 @@ async function startServer() {
     }
   });
 
+  // Image proxy (dev parity with the Worker). Re-serves feed images with
+  // permissive CORS + CORP so the browser doesn't block them.
+  app.get("/api/img-proxy", async (req, res) => {
+    try {
+      const target = req.query.url;
+      if (typeof target !== "string" || !target) {
+        return res.status(400).send("url required");
+      }
+      const upstream = await fetch(target, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "image/avif,image/webp,image/png,image/jpeg,image/*,*/*",
+          Referer: "",
+        },
+        signal: AbortSignal.timeout(15000) as any,
+      });
+      if (!upstream.ok) {
+        return res.status(upstream.status).send("Image fetch failed");
+      }
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      const ct = upstream.headers.get("content-type") || "image/jpeg";
+      res.setHeader("Content-Type", ct);
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      res.setHeader("Timing-Allow-Origin", "*");
+      return res.send(buf);
+    } catch {
+      return res.status(502).send("Image fetch failed");
+    }
+  });
+
   // Keyless machine translation (Google gtx endpoint) for locale switching.
   // Parity with the Cloudflare Worker route.
   app.post("/api/translate", async (req, res) => {

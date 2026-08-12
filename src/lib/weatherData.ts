@@ -3,8 +3,9 @@
 // (which share the same /api/weather/mv scraping logic).
 
 export interface WeatherForecast {
-  // "mv" = official Maldives Meteorological Service; "open-meteo" = national agency via Open-Meteo
-  source: "mv" | "open-meteo";
+  // "mv" = official Maldives Meteorological Service; "open-meteo" = national
+  // agency via Open-Meteo; "unavailable" = all upstreams failed (graceful 200)
+  source: "mv" | "open-meteo" | "unavailable";
   country: string;
   capital?: string; // present for open-meteo countries
   attribution: string;

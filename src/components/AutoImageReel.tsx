@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { proxied } from "../lib/imgProxy";
 
 interface AutoImageReelProps {
   images: string[];
@@ -51,7 +52,7 @@ export default function AutoImageReel({ images, intervalMs = 3500, className = "
         display.map((src, i) => (
           <img
             key={src + i}
-            src={src}
+            src={proxied(src) || src}
             alt=""
             referrerPolicy="no-referrer"
             loading={i === 0 ? "eager" : "lazy"}

@@ -73,6 +73,18 @@ export default function WeatherOverview({ countryCode }: Props) {
     );
   }
 
+  if (data.source === "unavailable") {
+    return (
+      <div className="border-2 border-amber-500/40 bg-amber-500/5 p-5 flex items-center gap-3 text-amber-700 dark:text-amber-400">
+        <CloudOff className="w-5 h-5 shrink-0" />
+        <div className="text-sm font-serif">
+          <p className="font-bold">Weather unavailable</p>
+          <p className="text-xs opacity-80">The forecast service is temporarily unreachable. Try again shortly.</p>
+        </div>
+      </div>
+    );
+  }
+
   const isMv = data.source === "mv";
   const subtitle = isMv
     ? "Maldives Meteorological Service"

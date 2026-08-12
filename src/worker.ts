@@ -114,18 +114,71 @@ async function handleApi(request: Request, env: any): Promise<Response> {
     if (!Array.isArray(articles) || !articles.length) {
       return Response.json({ error: "articles[] required" }, { status: 400 });
     }
+    const d = new Date();
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     try {
       const { generateBrief } = await import("./lib/groqBrief");
       const apiKey = (typeof body?.key === "string" && body.key.trim()) || env?.GROQ_API_KEY || "";
       const useAi = body?.useAi !== false;
-      const d = new Date();
-      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const result = await generateBrief(articles, dateKey, apiKey, useAi);
       return Response.json(result, {
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       });
     } catch (error: any) {
-      return Response.json({ error: error?.message || "Brief generation failed" }, { status: 502 });
+      // Never surface a 5xx for the brief — the client always has a usable
+      // local fallback, so return it (HTTP 200) even if Groq/AI fails.
+      try {
+        const { generateBrief } = await import("./lib/groqBrief");
+        const fallback = await generateBrief(articles, dateKey, "", false);
+        return Response.json(
+          { ...fallback, error: error?.message || "brief_error" },
+          { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+        );
+      } catch {
+        return Response.json(
+          { brief: null, source: "fallback", error: error?.message || "brief_error" },
+          { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+        );
+      }
+    }
+  }
+
+  // Image proxy: fetch a feed image server-side and re-serve it with permissive
+  // CORS + Cross-Origin-Resource-Policy headers. Feed image hosts usually don't
+  // send CORP, so the browser blocks them (ERR_BLOCKED_BY_RESPONSE). Proxying
+  // through the Worker fixes that without exposing any key.
+  if (url.pathname === "/api/img-proxy" && request.method === "GET") {
+    const target = url.searchParams.get("url");
+    if (!target) {
+      return new Response("url required", { status: 400 });
+    }
+    try {
+      const upstream = await fetch(decodeURIComponent(target), {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Accept: "image/avif,image/webp,image/png,image/jpeg,image/*,*/*",
+          Referer: "",
+        },
+        signal: AbortSignal.timeout(15000),
+        redirect: "follow",
+      });
+      if (!upstream.ok) {
+        return new Response("Image fetch failed", { status: upstream.status });
+      }
+      const buf = await upstream.arrayBuffer();
+      const ct = upstream.headers.get("content-type") || "image/jpeg";
+      return new Response(buf, {
+        headers: {
+          "Content-Type": ct,
+          "Cache-Control": "public, max-age=86400",
+          "Access-Control-Allow-Origin": "*",
+          "Cross-Origin-Resource-Policy": "cross-origin",
+          "Timing-Allow-Origin": "*",
+        },
+      });
+    } catch {
+      return new Response("Image fetch failed", { status: 502 });
     }
   }
 

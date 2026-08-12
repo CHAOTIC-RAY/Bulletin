@@ -73,24 +73,40 @@ async function fetchOpenMeteo(country: WeatherCountry): Promise<WeatherForecast>
 }
 
 /**
- * Resolve a weather forecast for a country code. MV tries the official Maldives
- * Meteorological Service first, then falls back to Open-Meteo (Malé) if that
- * source is unavailable (upstream 503 / egress block / parse budget). Every
- * other country resolves to its capital via Open-Meteo. The box always renders
- * real data; the source attribution stays honest about which one was used.
+ * Resolve a weather forecast for a country code.
+ *
+ * Open-Meteo is used as the PRIMARY source for every country (including MV /
+ * Malé) because it is reliably egress-allowed from Cloudflare Workers. The
+ * official Maldives Meteorological Service is kept only as a best-effort
+ * SECONDARY for MV: its subrequest is sometimes hard-blocked by Cloudflare
+ * (error 1102), and if it is the first call it can abort the whole request
+ * before any fallback runs — so it must never be the primary.
+ *
+ * The box always renders real data; if every upstream fails we return a
+ * graceful "unavailable" payload (HTTP 200) so the UI shows a friendly message
+ * instead of a raw Cloudflare 503.
  */
 export async function fetchWeatherForCountry(code: string): Promise<WeatherForecast> {
   const country = getWeatherCountryInfo(code);
-  if (country.code === "MV") {
-    try {
-      return await fetchMaldivesForecast();
-    } catch {
-      // Official source unavailable — serve Open-Meteo for Malé instead of
-      // erroring. The attribution below makes the fallback explicit.
-      const fallback = await fetchOpenMeteo(country);
-      fallback.attribution = `Open-Meteo fallback · ${country.capital.city}, ${country.name} (official source unavailable)`;
-      return fallback;
+  try {
+    return await fetchOpenMeteo(country);
+  } catch {
+    // Best-effort secondary: official Maldives source (MV only).
+    if (country.code === "MV") {
+      try {
+        return await fetchMaldivesForecast();
+      } catch {
+        /* fall through to unavailable */
+      }
     }
   }
-  return fetchOpenMeteo(country);
+  return {
+    source: "unavailable",
+    country: country.name,
+    capital: country.capital?.city || "",
+    attribution: "Weather service temporarily unavailable",
+    fetchedAt: Date.now(),
+    days: [],
+    current: undefined,
+  };
 }
