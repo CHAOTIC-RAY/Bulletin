@@ -18,7 +18,7 @@ import DailyBriefCard from "./components/DailyBriefCard";
 import FeedReader from "./components/FeedReader";
 import LanguageSetup from "./components/LanguageSetup";
 import FilterModal, { FilterOptions, DEFAULT_FILTER_OPTIONS } from "./components/FilterModal";
-import { Settings, RefreshCw, LayoutTemplate, Smartphone, SlidersHorizontal } from "lucide-react";
+import { Settings, RefreshCw, BookOpen, Newspaper, SlidersHorizontal } from "lucide-react";
 
 type Screen = "setup" | "home";
 type ViewMode = "immersive" | "magazine";
@@ -239,7 +239,7 @@ export default function App() {
                   : "text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white"
               }`}
             >
-              <Smartphone className="w-4 h-4" />
+              <Newspaper className="w-4 h-4" />
               <span className="hidden sm:inline">{t("nav.immersive")}</span>
             </button>
             <button
@@ -250,7 +250,7 @@ export default function App() {
                   : "text-white/60 hover:text-white"
               }`}
             >
-              <LayoutTemplate className="w-4 h-4" />
+              <BookOpen className="w-4 h-4" />
               <span className="hidden sm:inline">{t("nav.magazine")}</span>
             </button>
           </div>
