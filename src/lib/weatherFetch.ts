@@ -73,14 +73,24 @@ async function fetchOpenMeteo(country: WeatherCountry): Promise<WeatherForecast>
 }
 
 /**
- * Resolve a weather forecast for a country code. MV uses the official national
- * met service; everything else uses Open-Meteo. Throws on network/parse failure
- * so the caller can surface an honest error to the client.
+ * Resolve a weather forecast for a country code. MV tries the official Maldives
+ * Meteorological Service first, then falls back to Open-Meteo (Malé) if that
+ * source is unavailable (upstream 503 / egress block / parse budget). Every
+ * other country resolves to its capital via Open-Meteo. The box always renders
+ * real data; the source attribution stays honest about which one was used.
  */
 export async function fetchWeatherForCountry(code: string): Promise<WeatherForecast> {
   const country = getWeatherCountryInfo(code);
   if (country.code === "MV") {
-    return fetchMaldivesForecast();
+    try {
+      return await fetchMaldivesForecast();
+    } catch {
+      // Official source unavailable — serve Open-Meteo for Malé instead of
+      // erroring. The attribution below makes the fallback explicit.
+      const fallback = await fetchOpenMeteo(country);
+      fallback.attribution = `Open-Meteo fallback · ${country.capital.city}, ${country.name} (official source unavailable)`;
+      return fallback;
+    }
   }
   return fetchOpenMeteo(country);
 }
