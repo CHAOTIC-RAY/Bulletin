@@ -63,11 +63,11 @@ const ITEMS_KEY = "bulletin_feed_items";
 // maldivesindependent, edition.mv, etc.) may leak in, and international
 // sources are hidden so the view stays purely Dhivehi.
 export const DhivehiThaanaSources: Omit<FeedSubscription, "id" | "addedAt">[] = [
-  { title: "Dhivehiraajjeyge Araam", siteUrl: "https://dhiyares.com/", feedUrl: "https://dhiyares.com/feed/" },
-  { title: "Miadhu", siteUrl: "https://www.miadhu.com/", feedUrl: "https://www.miadhu.com/rss" },
+  { title: "Dhivehiraajjeyge Araam", siteUrl: "https://dhiyares.com/", feedUrl: "https://dhiyares.com/rss/" },
+  { title: "Miadhu", siteUrl: "https://www.miadhu.com/", feedUrl: "https://miadhu.com/rss/" },
   { title: "Avas", siteUrl: "https://avas.mv/", feedUrl: "https://avas.mv/feed/" },
   { title: "Sun.mv", siteUrl: "https://sun.mv/", feedUrl: "https://sun.mv/feed/" },
-  { title: "Dhen", siteUrl: "https://dhen.mv/", feedUrl: "https://dhen.mv/feed/" },
+  { title: "Dhen", siteUrl: "https://dhen.mv/", feedUrl: "https://dhen.mv/feed" },
   { title: "Adhadhu", siteUrl: "https://adhadhu.com/", feedUrl: "https://adhadhu.com/feed/" },
   { title: "Dhauru", siteUrl: "https://dhauru.com/", feedUrl: "https://dhauru.com/feed/" },
 ];
