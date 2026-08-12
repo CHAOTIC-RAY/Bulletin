@@ -1,17 +1,16 @@
 // Unified Bulletin TTS Engine
 // Free, keyless browser WebSpeech (SpeechSynthesis) is the default — zero
-// download, zero API key, no 114 MB WASM model to crash low-end pages.
-// Piper TTS (in-browser WASM neural voices) remains available as an optional
-// local engine for users who want a different voice and have the bandwidth to
-// download a ~114 MB model. The reverse-engineered Edge TTS WebSocket was
+// download, zero API key. The reverse-engineered Edge TTS WebSocket was
 // removed: Microsoft killed that endpoint (401/403), so it only ever 502'd.
+// Piper WAS a local WASM option but was removed: the 114 MB ONNX model
+// crashed low-end pages and added ~450 KB of vendored deps. WebSpeech (free)
+// and the keyless Dhivehi proxy (dhivehi.mv) cover all locales now.
 
-import { synthesizePiperAudio, PIPER_VOICE_PACKS } from "./piperVoiceManager";
 import { getWebSpeechVoices, pickVoice, prepareTextForNaturalSpeech } from "./webSpeechEngine";
 import { synthesizePolly } from "./pollyEngine";
 import { cleanTtsText } from "./feedSanitize";
 
-export type TtsEngineType = "webspeech" | "piper" | "polly" | "dhivehi";
+export type TtsEngineType = "webspeech" | "polly" | "dhivehi";
 
 export interface TtsCallbacks {
   onSubtitle?: (text: string) => void;
@@ -28,7 +27,6 @@ function splitSentences(text: string): string[] {
 export class BulletinTts {
   private cb: TtsCallbacks = {};
   private engine: TtsEngineType = "webspeech";
-  private piperPackId = "ryan-high";
   private pollyVoiceId = "Matthew";
   private pollyEngine: "standard" | "neural" = "neural";
   private webSpeechLang = "en-US";
@@ -40,8 +38,6 @@ export class BulletinTts {
   private playing = false;
   private currentPlayId = 0;
   private currentAudio: HTMLAudioElement | null = null;
-  private audioCtx: AudioContext | null = null;
-  private activeSource: AudioBufferSourceNode | null = null;
   private utter: SpeechSynthesisUtterance | null = null;
 
   constructor(cb?: TtsCallbacks) {
@@ -52,10 +48,7 @@ export class BulletinTts {
   public loadSettings() {
     if (typeof localStorage !== "undefined") {
       const savedEngine = localStorage.getItem("bulletin_tts_engine") as TtsEngineType;
-      if (savedEngine === "webspeech" || savedEngine === "piper" || savedEngine === "polly" || savedEngine === "dhivehi") this.engine = savedEngine;
-
-      const savedPiper = localStorage.getItem("bulletin_piper_voice");
-      if (savedPiper) this.piperPackId = savedPiper;
+      if (savedEngine === "webspeech" || savedEngine === "polly" || savedEngine === "dhivehi") this.engine = savedEngine;
 
       const savedPolly = localStorage.getItem("bulletin_polly_voice");
       if (savedPolly) this.pollyVoiceId = savedPolly;
@@ -83,16 +76,14 @@ export class BulletinTts {
 
   public setEngine(
     engine: TtsEngineType,
-    piperPackId?: string,
+    _voiceId?: string,
     webSpeechLang?: string
   ) {
     this.engine = engine;
-    if (piperPackId) this.piperPackId = piperPackId;
     if (webSpeechLang) this.webSpeechLang = webSpeechLang;
 
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("bulletin_tts_engine", engine);
-      if (piperPackId) localStorage.setItem("bulletin_piper_voice", piperPackId);
     }
   }
 
@@ -133,9 +124,7 @@ export class BulletinTts {
       return;
     }
 
-    if (this.engine === "piper") {
-      await this.playPiper(sentences, playId);
-    } else if (this.engine === "polly") {
+    if (this.engine === "polly") {
       await this.playPolly(sentences, playId);
     } else if (this.engine === "dhivehi") {
       await this.playDhivehi(sentences, playId);
@@ -305,83 +294,6 @@ export class BulletinTts {
     }
   }
 
-  // --- 1. Piper TTS Playback (optional local WASM engine) ---
-  private async playPiper(sentences: string[], playId: number) {
-    try {
-      const bufferPromiseCache = new Map<number, Promise<AudioBuffer>>();
-
-      const getAudioBuffer = (index: number): Promise<AudioBuffer> => {
-        if (!bufferPromiseCache.has(index)) {
-          const promise = synthesizePiperAudio(sentences[index], this.piperPackId);
-          bufferPromiseCache.set(index, promise);
-        }
-        return bufferPromiseCache.get(index)!;
-      };
-
-      const prefetch = (currentIndex: number) => {
-        for (let i = 1; i <= 2; i++) {
-          const nextIndex = currentIndex + i;
-          if (nextIndex < sentences.length) {
-            getAudioBuffer(nextIndex).catch((err) => {
-              console.warn(`Piper pre-synthesis failed for index ${nextIndex}`, err);
-            });
-          }
-        }
-      };
-
-      let idx = 0;
-      const playNextSentence = async () => {
-        if (!this.playing || playId !== this.currentPlayId || idx >= sentences.length) {
-          if (playId === this.currentPlayId) {
-            this.playing = false;
-            this.cb.onEnded?.();
-          }
-          return;
-        }
-
-        const sentence = sentences[idx];
-        this.cb.onSubtitle?.(sentence);
-
-        try {
-          // Trigger prefetch for the next sentences immediately
-          prefetch(idx);
-
-          const audioBuffer = await getAudioBuffer(idx);
-          if (!this.playing || playId !== this.currentPlayId) return;
-
-          if (!this.audioCtx || this.audioCtx.state === "closed") {
-            this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-          }
-          if (this.audioCtx.state === "suspended") {
-            await this.audioCtx.resume();
-          }
-
-          const source = this.audioCtx.createBufferSource();
-          source.buffer = audioBuffer;
-          source.playbackRate.value = this.rate;
-          source.connect(this.audioCtx.destination);
-          this.activeSource = source;
-
-          source.onended = () => {
-            if (!this.playing || playId !== this.currentPlayId) return;
-            idx++;
-            playNextSentence();
-          };
-
-          source.start();
-        } catch (e: any) {
-          console.warn("Piper TTS error, using browser speech fallback:", e);
-          this.playWebSpeech(sentences.slice(idx), playId);
-        }
-      };
-
-      await playNextSentence();
-    } catch (err: any) {
-      console.warn("Piper TTS failed, using browser speech fallback:", err);
-      this.playWebSpeech(sentences, playId);
-    }
-  }
-
   // --- 2. Browser WebSpeech (default, free, keyless) ---
   private playWebSpeech(sentences: string[], playId: number) {
     if (typeof window === "undefined" || !window.speechSynthesis) {
@@ -489,14 +401,12 @@ export class BulletinTts {
 
   public pause() {
     this.playing = false;
-    if (this.audioCtx && this.audioCtx.state === "running") this.audioCtx.suspend();
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.pause();
     this.cb.onPause?.();
   }
 
   public resume() {
     this.playing = true;
-    if (this.audioCtx && this.audioCtx.state === "suspended") this.audioCtx.resume();
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.resume();
     this.cb.onPlay?.();
   }
@@ -508,12 +418,9 @@ export class BulletinTts {
 
     this.clearWebSpeechKeepAlive();
 
-    if (this.activeSource) {
-      try {
-        this.activeSource.stop();
-        this.activeSource.disconnect();
-      } catch {}
-      this.activeSource = null;
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio = null;
     }
 
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -541,7 +448,7 @@ export class BulletinTts {
   }
 
   public async prefetchItems(items: any[], startIndex: number) {
-    if (this.engine !== "polly" && this.engine !== "piper") {
+    if (this.engine !== "polly") {
       return;
     }
 
@@ -597,8 +504,6 @@ export class BulletinTts {
       try {
         if (this.engine === "polly") {
           await synthesizePolly(sentence, this.pollyVoiceId, this.pollyEngine, this.rate);
-        } else if (this.engine === "piper") {
-          await synthesizePiperAudio(sentence, this.piperPackId);
         }
       } catch (err) {
         console.warn("Background prefetch failed for sentence:", sentence, err);

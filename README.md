@@ -9,10 +9,10 @@ personal daily paper — read it, scroll it, or have it narrated to you.
 ## What's inside
 - **TikTok-style vertical news scroll** (`BulletinFeedScroll`) — one story per screen, snap scroll.
 - **Multi-image auto-switching** (`AutoImageReel`) — when an article has several images, they crossfade automatically (Dhivehi-friendly, respects `prefers-reduced-motion`).
-- **Listen (TTS)** — three engines, switchable in Settings:
-  - **Browser WebSpeech** (default) — free built-in system voices. Zero download, zero API key, works on every device. TTSReader's "free" voices ARE these.
+- **Listen (TTS)** — switchable in Settings:
+  - **Browser WebSpeech** (default) — free built-in system voices. Zero download, zero API key, works on every device.
   - **AWS Polly** — studio-quality neural voices (Matthew, Joanna, Amy, Stephen…) via the official Polly API. Free tier: 1M neural characters/month. Needs AWS credentials (see "AWS Polly setup" below).
-  - **Piper** — fully local, in-browser neural voices (`@diffusionstudio/vits-web`, WASM + OPFS). No network needed, works offline, but downloads a ~114 MB model (this is what was crashing low-end pages, so it is no longer the default).
+  - **Keyless Dhivehi (dhivehi.mv)** — Common Voice-based Dhivehi TTS via a Worker proxy. No API key, no download. Used automatically when Dhivehi news is enabled.
 - **Daily Brief / Daily Paper** — on-device brief generator (`generateNewsBrief`) groups today's stories by source into a personalized newspaper. An optional Groq pass (`GROQ_API_KEY`) polishes the writing when a key is set; otherwise it falls back to the on-device generator. Fully configurable in Settings (topics, sources, size, AI toggle).
 - **Multilingual** — `en` + `dv` (Dhivehi) UI strings; independent TTS narration language; full RTL layout for Thaana (`textDirection`).
 - **Easy setup** — pick interests → sources auto-onboard. No RSS pasting.
@@ -26,8 +26,9 @@ npm run dev      # http://localhost:3000  (Express + Vite middleware)
 ## Deploy to Cloudflare Workers
 This project is a Cloudflare Workers SPA: the static build is served by the
 **Static Assets** binding, and `/api/*` requests are handled by the Worker
-(`src/worker.ts`). WebSpeech + Piper run entirely in the browser, so they need
+(`src/worker.ts`). WebSpeech runs entirely in the browser, so it needs
 no Worker-side code. AWS Polly runs server-side in the Worker (needs creds).
+The Dhivehi TTS engine proxies dhivehi.mv from the Worker (keyless, no creds).
 
 ```bash
 npm install
