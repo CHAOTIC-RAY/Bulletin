@@ -5,6 +5,35 @@
  * theme is "dark" so the app keeps its current look until the user opts out. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ============================================================
+ * Design tokens — single source of truth for the Bulletin brand.
+ * Editorial neo-brutalist: warm newsprint + near-black ink + amber accent,
+ * sharp corners (rounded-none), hard offset shadows.
+ * ============================================================ */
+@theme {
+  --color-paper: #faf7ee;       /* warm newsprint (light bg) */
+  --color-paper-soft: #f5f1e6; /* slightly deeper paper for sticky bars */
+  --color-ink: #12110e;         /* near-black text */
+  --color-ink-soft: #4b4b47;    /* muted text */
+  --color-amber: #f59e0b;       /* primary accent */
+  --color-amber-deep: #d97706;  /* pressed/accent-deep */
+  --color-surface-dark: #0a0a0a;
+  --color-surface-card: #1a1815;/* dark-mode card surface */
+
+  --radius-card: 0px;           /* KEEP SHARP: editorial corners */
+
+  --shadow-hard: 4px 4px 0 0 rgba(0,0,0,0.95);
+  --shadow-hard-light: 4px 4px 0 0 rgba(0,0,0,0.12);
+  --shadow-hard-dark: 4px 4px 0 0 rgba(255,255,255,0.15);
+
+  --ease-snap: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 160ms;
+  --dur-med: 320ms;
+
+  --font-display: "Mv MAG Round", "Tharujamaanu", ui-sans-serif, system-ui, serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
 :root {
   color-scheme: dark;
 }

@@ -21,6 +21,8 @@ import LanguageSetup from "./components/LanguageSetup";
 import LoadingPile from "./components/LoadingPile";
 import FilterModal, { FilterOptions, DEFAULT_FILTER_OPTIONS } from "./components/FilterModal";
 import { Settings, RefreshCw, BookOpen, Newspaper, SlidersHorizontal } from "lucide-react";
+import { Segmented } from "./components/ui/Segmented";
+import { IconButton } from "./components/ui/IconButton";
 
 type Screen = "setup" | "home";
 type ViewMode = "immersive" | "magazine";
@@ -311,63 +313,41 @@ export default function App() {
       
       {/* Top Header Navigation */}
       <div className={`absolute top-0 left-0 right-0 px-4 pt-6 pb-4 transition-all duration-300 pointer-events-none ${isImmersive ? 'z-50' : 'z-40'}`}>
-        <div className="max-w-5xl mx-auto flex items-center justify-between pointer-events-auto">
+        <div className="max-w-5xl mx-auto flex items-center justify-between pointer-events-auto gap-3">
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <svg
               viewBox="0 0 194.16 232.77"
               role="img"
               aria-label="Bulletin"
-              className={`w-8 h-9 object-contain ${isImmersive ? "text-white drop-shadow-md" : "text-black dark:text-white"}`}
+              className={`w-8 h-9 object-contain shrink-0 ${isImmersive ? "text-white drop-shadow-md" : "text-ink dark:text-white"}`}
             >
               <path fill="currentColor" d="M194.16,54.97l-6.1,32.94-27.9,24.53,33.82,28.24.03,61.02-33.94,31-141.93.06,36.14-31.52-54.28-.27V.32s130.88-.14,130.88-.14l-.02,31.91-96.06.02.13,141.1L173.69,55.24l-33.37-.25.34-54.99,53.5,54.97ZM159.38,200.81l-.08-87.68-103.43,87.66,103.51.03Z" />
             </svg>
-            <span className={`hidden sm:inline font-extrabold tracking-tight text-xl ${isImmersive ? 'text-white drop-shadow-md' : 'text-black dark:text-white'}`}>{t("app.name")}</span>
+            <span className={`hidden sm:inline font-extrabold tracking-tight text-xl truncate ${isImmersive ? 'text-white drop-shadow-md' : 'text-ink dark:text-white'}`}>{t("app.name")}</span>
           </div>
 
-          <div className={`flex items-center p-1 rounded-none backdrop-blur-md shadow-sm border-2 ${isImmersive ? 'bg-black/40 border-white/20' : 'bg-[#faf7ee] dark:bg-black/50 border-neutral-950 dark:border-neutral-200'}`}>
-            <button
-              onClick={() => setViewMode("immersive")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none text-sm font-bold transition-all ${
-                isImmersive 
-                  ? "bg-amber-500 text-black shadow-none border-2 border-neutral-950" 
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white"
-              }`}
-            >
-              <Newspaper className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("nav.immersive")}</span>
-            </button>
-            <button
-              onClick={() => setViewMode("magazine")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-none text-sm font-bold transition-all ${
-                !isImmersive 
-                  ? "bg-black text-white dark:bg-white dark:text-black shadow-none border-2 border-neutral-950 dark:border-neutral-200" 
-                  : "text-white/60 hover:text-white"
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("nav.magazine")}</span>
-            </button>
-          </div>
+          <Segmented
+            aria-label="Reading mode"
+            value={isImmersive ? "immersive" : "magazine"}
+            onChange={(v) => setViewMode(v === "immersive" ? "immersive" : "magazine")}
+            options={[
+              { value: "immersive", label: t("nav.immersive"), icon: <Newspaper className="w-4 h-4" /> },
+              { value: "magazine", label: t("nav.magazine"), icon: <BookOpen className="w-4 h-4" /> },
+            ]}
+          />
 
           <div className="flex items-center gap-2">
-            <button
+            <IconButton
+              label={t("nav.refresh")}
               onClick={() => void loadFeeds()}
               disabled={refreshing}
-              className={`w-10 h-10 rounded-none flex items-center justify-center backdrop-blur-md transition-all ${
-                isImmersive ? 'bg-black/40 hover:bg-black/60 text-white border-white/20 border-2' : 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 border-2 border-neutral-950 dark:border-neutral-700'
-              }`}
             >
-              <RefreshCw className={`w-5 h-5 ${refreshing ? "animate-spin text-amber-500" : ""}`} />
-            </button>
-            <button
-              onClick={() => setScreen("setup")}
-              className={`w-10 h-10 rounded-none flex items-center justify-center backdrop-blur-md transition-all ${
-                isImmersive ? 'bg-black/40 hover:bg-black/60 text-white border-white/20 border-2' : 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 border-2 border-neutral-950 dark:border-neutral-700'
-              }`}
-            >
+              <RefreshCw className={`w-5 h-5 ${refreshing ? "animate-spin text-amber" : ""}`} />
+            </IconButton>
+            <IconButton label={t("nav.settings")} onClick={() => setScreen("setup")}>
               <Settings className="w-5 h-5" />
-            </button>
+            </IconButton>
           </div>
         </div>
       </div>
