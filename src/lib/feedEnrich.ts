@@ -980,6 +980,14 @@ export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> 
 
         let needsImage = isLowResImg || isGuardian || isPsm || isBloomberg || isDw;
         let needsContent = isShortContent || isGuardian || isPsm || isBloomberg || isDw;
+        // PERF: only article-scrape the top stories (first 6) on a feed load.
+        // Deeper items keep their (already-rich) RSS summary + image so the
+        // initial refresh returns fast instead of waiting on ~15 r.jina.ai calls.
+        const isTopStory = index < 6;
+        if (!isTopStory && !isGuardian && !isPsm && !isBloomberg && !isDw) {
+          needsContent = false;
+          needsImage = false;
+        }
 
         // Google News fallback items already carry a brand favicon image and a
         // valid summary; their link points to a GNews redirect page that hangs

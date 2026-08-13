@@ -61,12 +61,13 @@ export default function App() {
     const subs = ensureDefaultSubscriptions();
     if (subs.length) {
       setScreen("home");
+      // Show cached feed INSTANTLY (no blocking spinner). Background refresh
+      // enriches via r.jina.ai and updates the list when ready.
       setItems(getFeedItems());
-      setInitialLoading(true);
-      // Run background news generation with a delay to optimize initial frame rates
+      setInitialLoading(false);
       const timer = setTimeout(() => {
-        void loadFeeds().then(() => setInitialLoading(false));
-      }, 800);
+        void loadFeeds();
+      }, 400);
       return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

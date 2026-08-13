@@ -85,18 +85,33 @@ async function handleApi(request: Request, env: any): Promise<Response> {
     if (!target) {
       return Response.json({ error: "URL is required" }, { status: 400 });
     }
+    // Edge-cache enriched feeds so repeat loads (and the 300s window) return
+    // instantly instead of re-scraping every article via r.jina.ai.
+    const cacheKey = new Request(url.toString(), request);
+    try {
+      const cache = (caches as any).default;
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        const headers = new Headers(cached.headers);
+        headers.set("X-Feed-Cache", "HIT");
+        return new Response(cached.body, { status: cached.status, headers });
+      }
+    } catch { /* cache unavailable — fall through to live */ }
+
     try {
       const { fetchEnrichedFeed } = await import("./lib/feedEnrich");
       const feed = await fetchEnrichedFeed(decodeURIComponent(target));
       // Never return an empty feed as an error — surface what we got so the
       // client can fall back gracefully instead of the whole request 503ing.
-      return new Response(JSON.stringify(feed), {
+      const resp = new Response(JSON.stringify(feed), {
         headers: {
           "Content-Type": "application/json",
           "Cache-Control": "public, max-age=300",
           "Access-Control-Allow-Origin": "*",
         },
       });
+      try { await (caches as any).default.put(cacheKey, resp.clone()); } catch { /* ignore */ }
+      return resp;
     } catch (error: any) {
       return Response.json({ error: error?.message || "Feed enrichment failed" }, { status: 502 });
     }
