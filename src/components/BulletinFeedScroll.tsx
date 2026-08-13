@@ -4,6 +4,7 @@ import { textDirection } from "../lib/textDirection";
 import { t, getLocale } from "../lib/i18n";
 import AutoImageReel from "./AutoImageReel";
 import NoImageArt from "./NoImageArt";
+import { IconButton } from "./ui/IconButton";
 import { BulletinTts } from "../lib/ttsPlayer";
 import { Volume2, VolumeX, SlidersHorizontal } from "lucide-react";
 import { cleanArticleHtml as sanitize, cleanTtsText, getDisplayHeadline, extractImagesFromHtml } from "../lib/feedSanitize";
@@ -36,6 +37,7 @@ export default function BulletinFeedScroll({
   const [active, setActive] = useState(0);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [loadedDims, setLoadedDims] = useState<Record<string, { w: number; h: number }>>({});
+  const [loadedImgs, setLoadedImgs] = useState<Set<string>>(new Set());
   
   const [isReading, setIsReading] = useState(false);
   const [userMuted, setUserMuted] = useState(true);
@@ -233,7 +235,16 @@ export default function BulletinFeedScroll({
           if (el.naturalWidth && el.naturalHeight && item.imageUrl) {
             setLoadedDims((p) => ({ ...p, [item.imageUrl!]: { w: el.naturalWidth, h: el.naturalHeight } }));
           }
+          if (item.imageUrl) {
+            setLoadedImgs((prev) => {
+              if (prev.has(item.imageUrl!)) return prev;
+              const n = new Set(prev);
+              n.add(item.imageUrl!);
+              return n;
+            });
+          }
         };
+        const imgLoaded = item.imageUrl ? loadedImgs.has(item.imageUrl) : true;
         return (
           <section
             key={item.id}
@@ -244,14 +255,21 @@ export default function BulletinFeedScroll({
             {reelImages.length > 1 ? (
               <AutoImageReel images={reelImages} className="z-0" />
             ) : item.imageUrl ? (
-              <img
-                src={item.imageUrl}
-                alt=""
-                referrerPolicy="no-referrer"
-                loading="lazy"
-                onLoad={onImgLoad}
-                className={`absolute inset-0 w-full h-full object-cover z-0 kb ${kbClass(item, index)}`}
-              />
+              <>
+                <img
+                  src={item.imageUrl}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                  onLoad={onImgLoad}
+                  className={`absolute inset-0 w-full h-full object-cover z-0 kb ${kbClass(item, index)} transition-opacity duration-500 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+                />
+                {!imgLoaded && (
+                  <div className="absolute inset-0 z-0 bg-neutral-800 animate-pulse" aria-hidden>
+                    <div className="absolute inset-0 bg-gradient-to-tr from-neutral-900/60 via-neutral-800/30 to-neutral-700/40" />
+                  </div>
+                )}
+              </>
             ) : (
               <NoImageArt seed={item.id} />
             )}
@@ -260,16 +278,12 @@ export default function BulletinFeedScroll({
 
             {/* Action rail (Hidden when details are expanded) */}
             {!isExpanded && (
-              <div className="absolute right-4 bottom-6 sm:bottom-8 z-30 flex flex-col gap-3">
-                {/* Listen / TTS Button (icon only, directly above filter button) */}
-                <button
+              <div className="absolute right-4 bottom-24 md:bottom-8 z-30 flex flex-col gap-3">
+                {/* Listen / TTS */}
+                <IconButton
+                  label={userMuted ? "Listen to News" : "Mute Speech"}
                   onClick={toggleMute}
-                  className={`w-11 h-11 rounded-none border-2 backdrop-blur flex items-center justify-center transition-all active:scale-95 ${
-                    userMuted 
-                      ? "bg-black/50 text-white/70 hover:bg-black/80 hover:text-white border-white/20" 
-                      : "bg-amber-500 text-black border-amber-400 shadow-none"
-                  }`}
-                  title={userMuted ? "Listen to News" : "Mute Speech"}
+                  className={`w-11 h-11 ${userMuted ? "bg-black/50 text-white/80 hover:bg-black/80" : "bg-amber-500 text-black border-amber-400"}`}
                 >
                   {userMuted ? (
                     <VolumeX className="w-5 h-5" />
@@ -278,43 +292,37 @@ export default function BulletinFeedScroll({
                       <Volume2 className="w-5 h-5 text-black" />
                       {isReading && (
                         <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-none bg-black opacity-75"></span>
-                          <span className="relative inline-flex rounded-none h-2.5 w-2.5 bg-black"></span>
+                          <span className="animate-ping absolute inline-flex h-full w-full bg-black opacity-75" />
+                          <span className="relative inline-flex h-2.5 w-2.5 bg-black" />
                         </span>
                       )}
                     </div>
                   )}
-                </button>
+                </IconButton>
 
                 {onOpenFilter && (
-                  <button
+                  <IconButton
+                    label="Filter & Sort News"
                     onClick={onOpenFilter}
-                    className={`w-11 h-11 rounded-none border-2 bg-black/50 backdrop-blur flex items-center justify-center transition-all active:scale-95 ${
-                      hasActiveFilters
-                        ? "bg-amber-500 text-black border-amber-400 font-bold shadow-none"
-                        : "border-white/20 text-white hover:bg-black/70"
-                    }`}
-                    title="Filter & Sort News"
+                    className={`w-11 h-11 ${hasActiveFilters ? "bg-amber-500 text-black border-amber-400" : "bg-black/50 text-white hover:bg-black/70"}`}
                   >
                     <SlidersHorizontal className="w-5 h-5" />
-                  </button>
+                  </IconButton>
                 )}
-                <button
+                <IconButton
+                  label="Save"
                   onClick={() => onSave(item)}
-                  className={`w-11 h-11 rounded-none border-2 border-white/20 bg-black/50 backdrop-blur flex items-center justify-center text-white active:scale-95 ${
-                    item.saved ? "bg-amber-500 text-black border-amber-500" : ""
-                  }`}
-                  title="Save"
+                  className={`w-11 h-11 ${item.saved ? "bg-amber-500 text-black border-amber-500" : "bg-black/50 text-white hover:bg-black/70"}`}
                 >
                   {item.saved ? "★" : "☆"}
-                </button>
-                <button
+                </IconButton>
+                <IconButton
+                  label="Daily Brief"
                   onClick={onOpenBrief}
-                  className="w-11 h-11 rounded-none border-2 border-amber-400 bg-amber-500 text-black flex items-center justify-center active:scale-95 shadow-none"
-                  title="Daily Brief"
+                  className="w-11 h-11 bg-amber-500 text-black border-amber-400"
                 >
                   ⚡
-                </button>
+                </IconButton>
               </div>
             )}
 
@@ -325,9 +333,9 @@ export default function BulletinFeedScroll({
               onClick={() => setExpanded(isExpanded ? null : index)}
             >
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest mb-2 text-white/80">
-                <div className="flex items-center gap-2">
-                  <span className="text-amber-400 font-extrabold">{item.subscriptionTitle}</span>
-                  {item.saved && <span className="rounded-none border border-black/30 bg-amber-500 text-black px-1.5 py-0.5 text-[9px]">Saved</span>}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="rounded-none border-2 border-amber-400 bg-amber-500 text-black px-2 py-0.5 font-extrabold tracking-wider">{item.subscriptionTitle}</span>
+                  {item.saved && <span className="rounded-none border border-black/30 bg-white/90 text-black px-1.5 py-0.5 text-[9px]">Saved</span>}
                 </div>
                 {isExpanded && (
                   <span className="text-amber-400 bg-black/60 border-2 border-amber-500/30 px-2 py-0.5 rounded-none text-[10px] font-mono">
@@ -337,9 +345,7 @@ export default function BulletinFeedScroll({
               </div>
               <h2
                 dir={dir}
-                className={`text-xl md:text-3xl font-bold leading-tight mb-3 ${
-                  isExpanded ? "" : "line-clamp-4"
-                } ${dir === "rtl" ? "font-thaana-title" : ""}`}
+                className={`text-2xl sm:text-4xl md:text-5xl font-extrabold leading-[1.05] tracking-tight mb-3 font-display ${dir === "rtl" ? "font-thaana-title" : ""} ${isExpanded ? "" : "line-clamp-4"}`}
               >
                 {displayHeadline}
               </h2>
