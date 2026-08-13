@@ -61,12 +61,17 @@ export default function App() {
     const subs = ensureDefaultSubscriptions();
     if (subs.length) {
       setScreen("home");
-      // Show cached feed INSTANTLY (no blocking spinner). Background refresh
-      // enriches via r.jina.ai and updates the list when ready.
-      setItems(getFeedItems());
-      setInitialLoading(false);
+      // Show cached feed immediately; flip the spinner off the instant we have
+      // something to render so it never blocks on the (slower) background scrape.
+      const cached = getFeedItems();
+      setItems(cached);
+      // Returning users: cached feed exists → no spinner, render instantly.
+      // First-ever load (no cache): show spinner until loadFeeds() returns.
+      setInitialLoading(cached.length === 0);
+      // Background refresh enriches via r.jina.ai and clears the spinner when done
+      // (for first-ever loads with no cache). Capped to top-6 per feed so it's fast.
       const timer = setTimeout(() => {
-        void loadFeeds();
+        void loadFeeds().then(() => setInitialLoading(false));
       }, 400);
       return () => clearTimeout(timer);
     }
