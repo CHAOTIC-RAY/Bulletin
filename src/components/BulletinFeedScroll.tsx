@@ -3,6 +3,7 @@ import type { FeedItem } from "../lib/feedStorage";
 import { textDirection } from "../lib/textDirection";
 import { t, getLocale } from "../lib/i18n";
 import AutoImageReel from "./AutoImageReel";
+import NoImageArt from "./NoImageArt";
 import { BulletinTts } from "../lib/ttsPlayer";
 import { Volume2, VolumeX, SlidersHorizontal } from "lucide-react";
 import { cleanArticleHtml as sanitize, cleanTtsText, getDisplayHeadline, extractImagesFromHtml } from "../lib/feedSanitize";
@@ -252,7 +253,7 @@ export default function BulletinFeedScroll({
                 className={`absolute inset-0 w-full h-full object-cover z-0 kb ${kbClass(item, index)}`}
               />
             ) : (
-              <div className="absolute inset-0 z-0 bg-gradient-to-br from-amber-600/30 to-neutral-950" />
+              <NoImageArt seed={item.id} />
             )}
 
             <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/95 via-black/65 to-black/15" />
