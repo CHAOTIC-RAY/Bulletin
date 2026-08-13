@@ -15,13 +15,11 @@ import { isAdOrPromotional, matchItemTopic } from "./lib/feedEnrich";
 import { getLocale, getContentLocale, setContentLocale, LocaleCode, t } from "./lib/i18n";
 import BulletinFeedScroll from "./components/BulletinFeedScroll";
 import MagazineFeedScroll from "./components/MagazineFeedScroll";
-import DailyBriefCard from "./components/DailyBriefCard";
 import FeedReader from "./components/FeedReader";
 import LanguageSetup from "./components/LanguageSetup";
 import LoadingPile from "./components/LoadingPile";
 import FilterModal, { FilterOptions, DEFAULT_FILTER_OPTIONS } from "./components/FilterModal";
-import { Settings, RefreshCw, BookOpen, Newspaper, SlidersHorizontal } from "lucide-react";
-import { Segmented } from "./components/ui/Segmented";
+import { RefreshCw, Newspaper, SlidersHorizontal } from "lucide-react";
 import { IconButton } from "./components/ui/IconButton";
 import { AppNav, NavTab } from "./components/AppNav";
 
@@ -50,11 +48,9 @@ export default function App() {
   const [selected, setSelected] = useState<FeedItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    () => (localStorage.getItem("bulletin_default_view") as ViewMode) || "immersive"
+  const [navTab, setNavTab] = useState<NavTab>(
+    () => ((localStorage.getItem("bulletin_default_view") as string) === "magazine" ? "brief" : "feed")
   );
-  const [navTab, setNavTab] = useState<NavTab>("feed");
-  const [showBrief, setShowBrief] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(DEFAULT_FILTER_OPTIONS);
 
@@ -318,11 +314,13 @@ export default function App() {
     return <LoadingPile label={t("nav.loading")} />;
   }
 
-  const isImmersive = viewMode === "immersive";
+  const isImmersive = navTab === "feed";
 
   return (
     <div className={`h-[100dvh] w-full overflow-hidden transition-colors duration-500 ${isImmersive ? 'bg-neutral-950 text-white' : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white'}`}>
       
+      {navTab !== "settings" && (
+      <>
       {/* Top Header Navigation */}
       <div className={`absolute top-0 left-0 right-0 px-4 pt-6 pb-4 transition-all duration-300 pointer-events-none ${isImmersive ? 'z-50' : 'z-40'}`}>
         <div className="max-w-5xl mx-auto flex items-center justify-between pointer-events-auto gap-3">
@@ -339,16 +337,6 @@ export default function App() {
             <span className={`hidden sm:inline font-extrabold tracking-tight text-xl truncate ${isImmersive ? 'text-white drop-shadow-md' : 'text-ink dark:text-white'}`}>{t("app.name")}</span>
           </div>
 
-          <Segmented
-            aria-label="Reading mode"
-            value={isImmersive ? "immersive" : "magazine"}
-            onChange={(v) => setViewMode(v === "immersive" ? "immersive" : "magazine")}
-            options={[
-              { value: "immersive", label: t("nav.immersive"), icon: <Newspaper className="w-4 h-4" /> },
-              { value: "magazine", label: t("nav.magazine"), icon: <BookOpen className="w-4 h-4" /> },
-            ]}
-          />
-
           <div className="flex items-center gap-2">
             <IconButton
               label={t("nav.refresh")}
@@ -360,25 +348,20 @@ export default function App() {
           </div>
         </div>
       </div>
+      </>)}
 
-      {/* Full News Brief Overlay Modal */}
-      <DailyBriefCard
-        items={displayedItems}
-        narrateLang={narrateLang}
-        isOpen={showBrief}
-        onClose={() => setShowBrief(false)}
-        showBanner={false}
-      />
 
-      <div className={`h-full w-full ${navTab === "feed" ? "pb-20 md:pb-0 md:pl-24" : "pb-20 md:pb-0 md:pl-24"}`}>
-        {visibleItems.length ? (
+      <div className={`h-full w-full ${navTab === "feed" || navTab === "brief" ? "pb-20 md:pb-0 md:pl-24" : "pb-20 md:pb-0 md:pl-24"}`}>
+        {navTab === "settings" ? (
+          <LanguageSetup onDone={() => setNavTab("feed")} items={items} />
+        ) : visibleItems.length ? (
           isImmersive ? (
             <BulletinFeedScroll
               items={visibleItems}
               narrateLang={narrateLang}
               onOpen={openReader}
               onSave={toggleSave}
-              onOpenBrief={() => setShowBrief(!showBrief)}
+              onOpenBrief={() => setNavTab("brief")}
               onOpenFilter={() => setIsFilterOpen(true)}
               hasActiveFilters={hasActiveFilters}
             />
@@ -390,6 +373,13 @@ export default function App() {
               narrateLang={narrateLang}
             />
           )
+        ) : navTab === "brief" ? (
+          <div className="h-[100dvh] flex items-center justify-center text-center px-8 flex-col gap-3">
+            <div className="p-4 rounded-none bg-amber-500/10 border-2 border-amber-500/35 text-amber-500">
+              <Newspaper className="w-8 h-8" />
+            </div>
+            <p className="text-lg font-bold">Your Daily Paper is being composed…</p>
+          </div>
         ) : (
           <div className="h-[100dvh] flex items-center justify-center text-center px-8 flex-col gap-4">
             <div className="p-4 rounded-none bg-amber-500/10 border-2 border-amber-500/35 text-amber-500">
@@ -421,8 +411,6 @@ export default function App() {
         active={navTab}
         onChange={(t) => {
           setNavTab(t);
-          if (t === "brief") setShowBrief(true);
-          if (t === "settings") setScreen("setup");
         }}
         savedCount={savedCount}
       />

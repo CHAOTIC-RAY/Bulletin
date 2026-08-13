@@ -11,7 +11,7 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { id: "feed", label: "Feed", icon: <NewspaperIcon /> },
-  { id: "brief", label: "Brief", icon: <BriefIcon /> },
+  { id: "brief", label: "Daily Paper", icon: <BriefIcon /> },
   { id: "saved", label: "Saved", icon: <BookmarkIcon /> },
   { id: "settings", label: "Settings", icon: <GearIcon /> },
 ];

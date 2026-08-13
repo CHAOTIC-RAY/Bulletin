@@ -14,7 +14,6 @@ import {
   Newspaper,
   BookOpen,
   Check,
-  ChevronRight,
   Sparkles,
   CloudSun,
   ChevronDown,
@@ -243,14 +242,6 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
             </p>
           </div>
         </div>
-
-        <button
-          onClick={handleComplete}
-          className="px-5 py-2 rounded-none border-2 border-neutral-950 bg-amber-500 hover:bg-amber-400 text-black font-serif font-black text-xs uppercase tracking-wider shadow-[3px_3px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none transition-all"
-        >
-          Publish & Apply
-        </button>
-      </div>
 
       <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left column: Desktop Ledger Info Board / Sidebar (Hidden on mobile, beautiful on desktop) */}
@@ -694,17 +685,6 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
         </div>
       </div>
 
-      {/* Bottom Sticky Action Panel */}
-      <div className="sticky bottom-0 bg-[#f5f1e6]/95 dark:bg-[#12110e]/95 backdrop-blur-md p-4 border-t-2 border-neutral-950 dark:border-neutral-700 mt-auto z-50">
-        <div className="max-w-lg mx-auto">
-          <button
-            onClick={handleComplete}
-            className="w-full py-4 rounded-none border-2 border-neutral-950 bg-amber-500 hover:bg-amber-400 text-black font-serif font-black text-sm uppercase tracking-widest shadow-[4px_4px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2"
-          >
-            <span>Apply Changes & Go to Newspaper</span>
-            <ChevronRight className="w-5 h-5 stroke-[3]" />
-          </button>
-        </div>
       </div>
     </div>
   );
