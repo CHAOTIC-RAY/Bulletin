@@ -28,7 +28,7 @@ export default function WeatherOverview({ countryCode }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = () => {
     let alive = true;
     setLoading(true);
     setError(null);
@@ -51,7 +51,9 @@ export default function WeatherOverview({ countryCode }: Props) {
     return () => {
       alive = false;
     };
-  }, [code]);
+  };
+
+  useEffect(() => load(), [code]);
 
   if (loading) {
     return (
@@ -63,13 +65,24 @@ export default function WeatherOverview({ countryCode }: Props) {
 
   if (error || !data) {
     return (
-      <div className="border-2 border-red-500/40 bg-red-500/5 p-5 flex items-center gap-3 text-red-700 dark:text-red-400">
-        <CloudOff className="w-5 h-5 shrink-0" />
-        <div className="text-sm font-serif">
-          <p className="font-bold">Weather unavailable</p>
-          <p className="text-xs opacity-80">{error || "Try refreshing."}</p>
+      <section className="border-2 border-neutral-900/15 dark:border-neutral-700 bg-[#faf6ec] dark:bg-[#1a1815] p-5">
+        <div className="flex items-center gap-3">
+          <CloudOff className="w-5 h-5 shrink-0 text-neutral-400" />
+          <div className="flex-1 min-w-0">
+            <p className="font-bold font-serif text-neutral-800 dark:text-neutral-100">Weather unavailable</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              We couldn't reach the forecast service right now.
+            </p>
+          </div>
+          <button
+            onClick={() => load()}
+            className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-neutral-900/15 dark:border-neutral-700 text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Retry
+          </button>
         </div>
-      </div>
+      </section>
     );
   }
 

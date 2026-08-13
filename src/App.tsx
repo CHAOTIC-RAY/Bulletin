@@ -13,6 +13,7 @@ import {
 import { refreshAllSubscriptions, collectArticleImages } from "./lib/feedClient";
 import { isAdOrPromotional, matchItemTopic } from "./lib/feedEnrich";
 import { getLocale, getContentLocale, setContentLocale, LocaleCode, t } from "./lib/i18n";
+import { itemMatchesUiLocale } from "./lib/textLang";
 import BulletinFeedScroll from "./components/BulletinFeedScroll";
 import MagazineFeedScroll from "./components/MagazineFeedScroll";
 import FeedReader from "./components/FeedReader";
@@ -272,8 +273,13 @@ export default function App() {
       return true;
     });
 
+    // Locale-mode content gate: never mix scripts. In English mode hide any
+    // Thaana (Dhivehi) item; in Dhivehi mode hide any Latin/English item.
+    const uiLang = getLocale();
+    const gated = list.filter((item) => itemMatchesUiLocale(item, uiLang));
+
     // Sorting news items
-    return list.sort((a, b) => {
+    return gated.sort((a, b) => {
       if (filterOptions.sortBy === "oldest") {
         return (a.publishedAt || 0) - (b.publishedAt || 0);
       }
@@ -288,7 +294,7 @@ export default function App() {
       // Default: newest first
       return (b.publishedAt || 0) - (a.publishedAt || 0);
     });
-  }, [items, uiLocale, filterOptions]);
+  }, [items, uiLocale, getLocale(), filterOptions]);
 
   const savedCount = useMemo(() => items.filter((i) => i.saved).length, [items]);
 
@@ -304,6 +310,10 @@ export default function App() {
     filterOptions.selectedTopic !== "all" ||
     filterOptions.selectedSources.length > 0 ||
     filterOptions.searchQuery.trim().length > 0;
+
+  // Feed has items but the locale gate removed them all (e.g. Dhivehi mode with
+  // only English items loaded). Distinguish from an actual filter mismatch.
+  const localeGatedEmpty = items.length > 0 && displayedItems.length === 0 && !hasActiveFilters;
 
   if (screen === "setup") {
     return <LanguageSetup onDone={onSetupDone} items={items} />;
@@ -387,11 +397,19 @@ export default function App() {
             </div>
             <div>
               <p className="text-lg font-bold">
-                {navTab === "saved" ? "No saved articles yet" : "No articles found matching filters"}
+                {navTab === "saved"
+                  ? "No saved articles yet"
+                  : localeGatedEmpty
+                  ? `No ${getLocale() === "dv" ? "Dhivehi" : "English"} articles available`
+                  : "No articles found matching filters"}
               </p>
               <p className="text-sm text-neutral-400 mt-1">
                 {navTab === "saved"
                   ? "Tap the bookmark on any story to save it here."
+                  : localeGatedEmpty
+                  ? getLocale() === "dv"
+                    ? "Switch the app language to English, or add a Dhivehi news source."
+                    : "Switch the app language to Dhivehi, or add an English news source."
                   : "Try resetting your date, topic, or source filter settings."}
               </p>
             </div>

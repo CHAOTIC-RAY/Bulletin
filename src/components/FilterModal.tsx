@@ -79,11 +79,19 @@ export default function FilterModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={onClose}>
       <div
-        className="w-full max-w-xl max-h-[85vh] bg-neutral-900 border-2 border-neutral-800 text-white rounded-none shadow-2xl flex flex-col overflow-hidden"
+        className="w-full sm:max-w-2xl max-h-[88vh] bg-neutral-900 border-2 border-neutral-800 border-b-0 text-white rounded-none shadow-2xl flex flex-col overflow-hidden animate-sheet-up"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Filter and sort feed"
       >
+        {/* Sheet grab handle */}
+        <div className="flex justify-center pt-2.5 pb-1 shrink-0">
+          <span className="h-1.5 w-10 rounded-none bg-white/20" />
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/40">
           <div className="flex items-center gap-2.5">
