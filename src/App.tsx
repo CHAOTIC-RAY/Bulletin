@@ -18,6 +18,7 @@ import MagazineFeedScroll from "./components/MagazineFeedScroll";
 import DailyBriefCard from "./components/DailyBriefCard";
 import FeedReader from "./components/FeedReader";
 import LanguageSetup from "./components/LanguageSetup";
+import LoadingPile from "./components/LoadingPile";
 import FilterModal, { FilterOptions, DEFAULT_FILTER_OPTIONS } from "./components/FilterModal";
 import { Settings, RefreshCw, BookOpen, Newspaper, SlidersHorizontal } from "lucide-react";
 
@@ -45,6 +46,7 @@ export default function App() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [selected, setSelected] = useState<FeedItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("immersive");
   const [showBrief, setShowBrief] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -56,9 +58,10 @@ export default function App() {
     if (subs.length) {
       setScreen("home");
       setItems(getFeedItems());
+      setInitialLoading(true);
       // Run background news generation with a delay to optimize initial frame rates
       const timer = setTimeout(() => {
-        void loadFeeds();
+        void loadFeeds().then(() => setInitialLoading(false));
       }, 800);
       return () => clearTimeout(timer);
     }
@@ -262,6 +265,11 @@ export default function App() {
     return <LanguageSetup onDone={onSetupDone} items={items} />;
   }
 
+  // Full-screen pile animation on first load (before the feed is ready).
+  if (initialLoading) {
+    return <LoadingPile label={t("nav.loading")} />;
+  }
+
   const isImmersive = viewMode === "immersive";
 
   return (
@@ -390,6 +398,12 @@ export default function App() {
       />
 
       <FeedReader item={selected} narrateLang={narrateLang} onClose={() => setSelected(null)} />
+
+      {refreshing && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
+          <LoadingPile bare />
+        </div>
+      )}
     </div>
   );
 }
