@@ -61,19 +61,28 @@ export default function App() {
     const subs = ensureDefaultSubscriptions();
     if (subs.length) {
       setScreen("home");
-      // Show cached feed immediately; flip the spinner off the instant we have
-      // something to render so it never blocks on the (slower) background scrape.
       const cached = getFeedItems();
       setItems(cached);
-      // Returning users: cached feed exists → no spinner, render instantly.
-      // First-ever load (no cache): show spinner until loadFeeds() returns.
-      setInitialLoading(cached.length === 0);
-      // Background refresh enriches via r.jina.ai and clears the spinner when done
-      // (for first-ever loads with no cache). Capped to top-6 per feed so it's fast.
+      // Always show the custom LoadingPile spinner at startup (brand moment),
+      // then reveal the feed. Cold loads (no cache) keep it until loadFeeds()
+      // returns; warm loads show it for a short minimum (~700ms) so the
+      // animation is visible even though the cached feed is already ready.
+      setInitialLoading(true);
       const timer = setTimeout(() => {
-        void loadFeeds().then(() => setInitialLoading(false));
+        void loadFeeds().then(() => {
+          if (cached.length > 0) setInitialLoading(false);
+        });
       }, 400);
-      return () => clearTimeout(timer);
+      // Warm-load brand moment: if we already had cached items, drop the spinner
+      // after a short minimum so the app still feels fast.
+      let minTimer: ReturnType<typeof setTimeout> | undefined;
+      if (cached.length > 0) {
+        minTimer = setTimeout(() => setInitialLoading(false), 700);
+      }
+      return () => {
+        clearTimeout(timer);
+        if (minTimer) clearTimeout(minTimer);
+      };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
