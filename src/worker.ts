@@ -155,12 +155,43 @@ async function handleApi(request: Request, env: any): Promise<Response> {
   // stream from the browser so no CORS/API-key is needed. Falls back to 502 if
   // the upstream is unreachable. `q` = Thaana text (URL-encoded), `g` = gender
   // (m=male, f=female), `lang` = locale tag (ignored upstream, kept for parity).
+  //
+  // Recordings are cached at the Cloudflare edge via the Cache API, keyed on a
+  // content hash of (text, gender). This is the cross-user "reuse the same
+  // recording" store: the first user to read a given article chunk generates it,
+  // every subsequent user gets the identical cached MP3 from the edge (no upstream
+  // call, no API key, no per-user cost).
   if (url.pathname === "/api/tts/dv" && request.method === "GET") {
     const text = url.searchParams.get("q");
     if (!text) {
       return Response.json({ error: "Text (q) is required" }, { status: 400 });
     }
     const gender = url.searchParams.get("g") || "f";
+    const cacheKey = `${gender}|${text}`;
+    const cacheKeyHash = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(cacheKey)
+    );
+    const cacheKeyHex = Array.from(new Uint8Array(cacheKeyHash))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const cacheUrl = new URL("https://bulletin-tts.dv/" + cacheKeyHex);
+
+    // Serve from edge cache if a previous user already generated this recording.
+    const cache = await caches.open("tts-cache");
+    const cached = await cache.match(cacheUrl);
+    if (cached) {
+      return new Response(cached.body, {
+        headers: {
+          "Content-Type": "audio/mpeg",
+          "Cache-Control": "public, max-age=2592000",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Range",
+          "X-Tts-Cache": "HIT " + cacheKeyHex.slice(0, 8),
+        },
+      });
+    }
+
     try {
       const upstream = await fetch(
         `https://dhivehi.mv/tools/tts/data/?g=${encodeURIComponent(gender)}&q=${encodeURIComponent(text)}`,
@@ -179,14 +210,29 @@ async function handleApi(request: Request, env: any): Promise<Response> {
           { status: 502, headers: { "Access-Control-Allow-Origin": "*" } }
         );
       }
-      return new Response(upstream.body, {
+      // Write to the edge cache so every other user (and this user's next read)
+      // reuses the generated MP3 instead of regenerating it.
+      const ct = upstream.headers.get("Content-Type") || "audio/mpeg";
+      const resp = new Response(upstream.body, {
         headers: {
-          "Content-Type": "audio/mpeg",
-          "Cache-Control": "public, max-age=3600",
+          "Content-Type": ct,
+          "Cache-Control": "public, max-age=2592000",
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Headers": "Range",
+          "X-Tts-Cache": "MISS " + cacheKeyHex.slice(0, 8),
         },
       });
+      try {
+        // Cache the readable stream once; clone the body for the response.
+        const [cacheStream, respStream] = resp.body?.tee() ?? [resp.body, null];
+        if (cacheStream) {
+          const cacheCopy = new Response(cacheStream, { headers: resp.headers });
+          await cache.put(cacheUrl, cacheCopy);
+        }
+        return respStream ? new Response(respStream, { headers: resp.headers }) : resp;
+      } catch {
+        return resp;
+      }
     } catch (error: any) {
       return Response.json(
         { error: error?.message || "Dhivehi TTS failed" },

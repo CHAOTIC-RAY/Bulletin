@@ -4,7 +4,8 @@ import { textDirection } from "../lib/textDirection";
 import { BulletinTts } from "../lib/ttsPlayer";
 import { t, getLocale } from "../lib/i18n";
 import { createPortal } from "react-dom";
-import { cleanArticleHtml, cleanTtsText } from "../lib/feedSanitize";
+import { cleanArticleHtml, cleanTtsText, getDisplayHeadline, containsThaana } from "../lib/feedSanitize";
+import { getContentLocale } from "../lib/i18n";
 
 interface Props {
   item: FeedItem | null;
@@ -24,7 +25,13 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
   }, []);
 
   if (!item) return null;
-  const dir = textDirection(item.title);
+  const contentLocale = getContentLocale();
+  // When reading Dhivehi news, derive the headline + direction from the Thaana
+  // article body (the real headline) instead of the Latin `<title>` that RSS
+  // feeds store for SEO. This is what was leaving the headline in English.
+  const displayHeadline =
+    contentLocale === "dv" ? getDisplayHeadline(item.title, item.content || item.summary || "") : item.title;
+  const dir = textDirection(displayHeadline);
   const locale = getLocale();
 
   const ensureTts = () => {
@@ -50,7 +57,9 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
       return;
     }
     const fullText = item!.content ? cleanTtsText(item!.content) : item!.summary ? cleanTtsText(item!.summary) : "";
-    const text = `${item!.title}. ${fullText}`;
+    // Use the Thaana headline (not the Latin RSS title) as the intro for TTS.
+    const headlineText = contentLocale === "dv" ? displayHeadline : item!.title;
+    const text = `${headlineText}. ${fullText}`;
     tts.setVoice(narrateLang, "", 1, 1);
     tts.play(text);
     setPlaying(true);
@@ -71,7 +80,7 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 max-w-2xl mx-auto w-full">
-        <h1 dir={dir} className={`text-2xl font-bold leading-tight mb-4 ${dir === "rtl" ? "font-thaana" : ""}`}>{item.title}</h1>
+        <h1 dir={dir} className={`text-2xl font-bold leading-tight mb-4 ${dir === "rtl" ? "font-thaana text-right" : ""}`}>{displayHeadline}</h1>
 
         {item.imageUrl && (
           <img src={item.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full rounded-none border-2 border-neutral-950 dark:border-neutral-700 mb-4 object-cover" />

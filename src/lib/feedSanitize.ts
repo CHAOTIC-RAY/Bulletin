@@ -154,3 +154,38 @@ export function cleanTtsText(htmlStr: string): string {
   return text;
 }
 
+/**
+ * Detect whether a string contains Thaana script (Arabic-range Dhivehi).
+ * Thaana occupies the U+0780–U+07FF Unicode block.
+ */
+export function containsThaana(text: string): boolean {
+  if (!text) return false;
+  return /[\u0780-\u07FF]/.test(text);
+}
+
+/**
+ * Pick the most Dhivehi-natural headline for a feed item.
+ *
+ * Maldivian RSS feeds (sun.mv, miadhu, avas, etc.) populate `<title>` with a
+ * Latin transliteration for SEO/feed-reader compatibility, while the real Thaana
+ * headline is the opening of the article body (`<description>`/`<content>`).
+ * When the content locale is Dhivehi, prefer the Thaana headline from the body
+ * so the reader sees real Dhivehi script instead of a Latin transliteration.
+ *
+ * `title` — the RSS `<title>` (often Latin). `body` — the article body HTML.
+ */
+export function getDisplayHeadline(title: string, body: string): string {
+  if (!body) return title || "(no title)";
+  const plain = cleanTtsText(body);
+  // The Thaana headline is typically the first sentence/paragraph of the body.
+  const thaanaMatch = plain.match(/[\u0780-\u07FF][\s\S]*?(?=[.!?؟\n]|$)/u);
+  if (thaanaMatch && thaanaMatch[0].trim().length >= 3) {
+    return thaanaMatch[0].trim();
+  }
+  // Fall back: if the body starts with Thaana, take the first ~140 chars.
+  if (containsThaana(plain)) {
+    return plain.slice(0, 140).trim() || title || "(no title)";
+  }
+  return title || "(no title)";
+}
+
