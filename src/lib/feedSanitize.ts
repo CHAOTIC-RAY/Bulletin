@@ -189,3 +189,22 @@ export function getDisplayHeadline(title: string, body: string): string {
   return title || "(no title)";
 }
 
+/**
+ * Pick the most Dhivehi-natural detail/body sentence for a feed item.
+ * For Dhivehi content we want the real Thaana body text (not the Latin RSS
+ * summary). Returns the first Thaana sentence of the article body, or a
+ * truncated plain-text fallback.
+ */
+export function getDisplayDetail(body: string): string {
+  if (!body) return "";
+  const plain = cleanTtsText(body);
+  const thaanaMatch = plain.match(/[\u0780-\u07FF][\s\S]*?(?=[.!?؟\n]|$)/u);
+  if (thaanaMatch && thaanaMatch[0].trim().length >= 8) {
+    return thaanaMatch[0].trim();
+  }
+  if (containsThaana(plain)) {
+    return plain.slice(0, 200).trim();
+  }
+  return plain.slice(0, 200).trim();
+}
+

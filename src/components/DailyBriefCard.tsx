@@ -4,6 +4,7 @@ import { getBriefSettings, filterItemsForBrief, getAvailableSourceTitles } from 
 import { buildDailyBrief, type BriefArticleInput, type GeneratedDailyBrief } from "../lib/generateNewsBrief";
 import { BulletinTts } from "../lib/ttsPlayer";
 import { t, getLocale, getContentLocale } from "../lib/i18n";
+import { getDisplayHeadline, getDisplayDetail } from "../lib/feedSanitize";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Volume2, VolumeX, Sparkles, ArrowUpRight } from "lucide-react";
 import { textDirection } from "../lib/textDirection";
@@ -104,12 +105,23 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
   // Flatten all articles from generated brief sections for the bento layout
   const flatBriefItems = useMemo(() => {
     if (!brief) return [];
+    const dv = getContentLocale() === "dv";
     return brief.sections.flatMap((s) =>
       s.items.map((it) => {
-        // Find matching original feed item to recover image URLs
+        // Find matching original feed item to recover image URLs + Thaana body
         const matchedOrig = items.find((orig) => orig.id === it.id || orig.title === it.headline);
+        let headline = it.headline;
+        let detail = it.detail;
+        if (dv && matchedOrig) {
+          const body = matchedOrig.content || matchedOrig.summary || "";
+          headline = getDisplayHeadline(it.headline, body) || it.headline;
+          const thaanaDetail = getDisplayDetail(body);
+          if (thaanaDetail) detail = thaanaDetail;
+        }
         return {
           ...it,
+          headline,
+          detail,
           source: s.source,
           intro: s.intro,
           originalItem: matchedOrig,
@@ -435,7 +447,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
           <h2
             dir={dir}
             className={`font-serif font-black leading-snug text-neutral-950 dark:text-white text-base ${
-              dir === "rtl" ? "font-thaana text-right" : ""
+              dir === "rtl" ? "font-thaana-title text-right" : ""
             }`}
           >
             {art.headline}

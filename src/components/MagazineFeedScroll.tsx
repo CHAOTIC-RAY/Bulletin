@@ -4,6 +4,8 @@ import { buildPersonalizedBrief, type PersonalizedBrief } from "../lib/briefServ
 import { getBriefSettings } from "../lib/feedStorage";
 import { BulletinTts } from "../lib/ttsPlayer";
 import { textDirection } from "../lib/textDirection";
+import { getContentLocale } from "../lib/i18n";
+import { getDisplayHeadline, getDisplayDetail } from "../lib/feedSanitize";
 import WeatherOverview from "./WeatherOverview";
 import { Bookmark, BookmarkCheck, ArrowUpRight, Newspaper, Globe, Sparkles, Volume2, VolumeX } from "lucide-react";
 
@@ -91,11 +93,22 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
   // Flatten all articles from the sections to treat them as individual bento bricks
   const allArticles = useMemo(() => {
     if (!pb) return [];
+    const dv = getContentLocale() === "dv";
     return pb.brief.sections.flatMap((section) =>
       section.items.map((it) => {
         const item = items.find((i) => i.id === it.id);
+        let headline = it.headline;
+        let detail = it.detail;
+        if (dv && item) {
+          const body = item.content || item.summary || "";
+          headline = getDisplayHeadline(it.headline, body) || it.headline;
+          const thaanaDetail = getDisplayDetail(body);
+          if (thaanaDetail) detail = thaanaDetail;
+        }
         return {
           ...it,
+          headline,
+          detail,
           source: section.source,
           intro: section.intro,
           item,

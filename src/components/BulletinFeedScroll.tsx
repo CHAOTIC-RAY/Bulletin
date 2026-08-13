@@ -214,7 +214,11 @@ export default function BulletinFeedScroll({
       className="h-[100dvh] w-full overflow-y-auto snap-y snap-mandatory scrollbar-none touch-pan-y bg-neutral-950 relative"
     >
       {items.map((item, index) => {
-        const dir = textDirection(item.title);
+        const displayHeadline =
+          getContentLocale() === "dv"
+            ? getDisplayHeadline(item.title, item.content || item.summary || "")
+            : item.title;
+        const dir = textDirection(displayHeadline);
         const isExpanded = expanded === index;
         const inlineImgs = extractImagesFromHtml(item.content || item.summary || "");
         const allImgsSet = new Set<string>();
@@ -336,7 +340,7 @@ export default function BulletinFeedScroll({
                   isExpanded ? "" : "line-clamp-4"
                 } ${dir === "rtl" ? "font-thaana-title" : ""}`}
               >
-                {item.title}
+                {displayHeadline}
               </h2>
 
               {isExpanded && (

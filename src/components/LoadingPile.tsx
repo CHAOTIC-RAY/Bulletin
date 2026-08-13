@@ -105,7 +105,7 @@ export default function LoadingPile({ label, bare = false }: { label?: string; b
         .lp-p3 { --r: -2deg; animation: lp-paperDrop 4s infinite 1.2s; z-index: 3; top: -4px; left: 8px; }
         .lp-p4 { --r: 1deg;  animation: lp-paperDrop 4s infinite 1.8s; z-index: 4; top: 8px; left: -2px; }
         .lp-label {
-          font-family: ui-sans-serif, system-ui, sans-serif;
+          font-family: "Mv MAG Round", "Tharujamaanu", "Faruma", ui-sans-serif, system-ui, sans-serif;
           font-size: 13px;
           font-weight: 600;
           letter-spacing: 0.02em;
