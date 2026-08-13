@@ -23,6 +23,7 @@ import FilterModal, { FilterOptions, DEFAULT_FILTER_OPTIONS } from "./components
 import { Settings, RefreshCw, BookOpen, Newspaper, SlidersHorizontal } from "lucide-react";
 import { Segmented } from "./components/ui/Segmented";
 import { IconButton } from "./components/ui/IconButton";
+import { AppNav, NavTab } from "./components/AppNav";
 
 type Screen = "setup" | "home";
 type ViewMode = "immersive" | "magazine";
@@ -50,6 +51,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("immersive");
+  const [navTab, setNavTab] = useState<NavTab>("feed");
   const [showBrief, setShowBrief] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(DEFAULT_FILTER_OPTIONS);
@@ -290,6 +292,14 @@ export default function App() {
     });
   }, [items, uiLocale, filterOptions]);
 
+  const savedCount = useMemo(() => items.filter((i) => i.saved).length, [items]);
+
+  // The list actually rendered: when the Saved tab is active, restrict to saved.
+  const visibleItems = useMemo(
+    () => (navTab === "saved" ? displayedItems.filter((i) => i.saved) : displayedItems),
+    [displayedItems, navTab]
+  );
+
   const hasActiveFilters =
     filterOptions.sortBy !== "newest" ||
     filterOptions.dateRange !== "all" ||
@@ -345,9 +355,6 @@ export default function App() {
             >
               <RefreshCw className={`w-5 h-5 ${refreshing ? "animate-spin text-amber" : ""}`} />
             </IconButton>
-            <IconButton label={t("nav.settings")} onClick={() => setScreen("setup")}>
-              <Settings className="w-5 h-5" />
-            </IconButton>
           </div>
         </div>
       </div>
@@ -361,11 +368,11 @@ export default function App() {
         showBanner={false}
       />
 
-      <div className={`h-full w-full`}>
-        {displayedItems.length ? (
+      <div className={`h-full w-full ${navTab === "feed" ? "pb-20 md:pb-0 md:pl-24" : "pb-20 md:pb-0 md:pl-24"}`}>
+        {visibleItems.length ? (
           isImmersive ? (
             <BulletinFeedScroll
-              items={displayedItems}
+              items={visibleItems}
               narrateLang={narrateLang}
               onOpen={openReader}
               onSave={toggleSave}
@@ -375,7 +382,7 @@ export default function App() {
             />
           ) : (
             <MagazineFeedScroll
-              items={displayedItems}
+              items={visibleItems}
               onOpen={openReader}
               onSave={toggleSave}
               narrateLang={narrateLang}
@@ -387,18 +394,36 @@ export default function App() {
               <SlidersHorizontal className="w-8 h-8" />
             </div>
             <div>
-              <p className="text-lg font-bold">No articles found matching filters</p>
-              <p className="text-sm text-neutral-400 mt-1">Try resetting your date, topic, or source filter settings.</p>
+              <p className="text-lg font-bold">
+                {navTab === "saved" ? "No saved articles yet" : "No articles found matching filters"}
+              </p>
+              <p className="text-sm text-neutral-400 mt-1">
+                {navTab === "saved"
+                  ? "Tap the bookmark on any story to save it here."
+                  : "Try resetting your date, topic, or source filter settings."}
+              </p>
             </div>
-            <button
-              onClick={() => setFilterOptions(DEFAULT_FILTER_OPTIONS)}
-              className="px-4 py-2 bg-amber-500 text-black font-extrabold text-xs uppercase tracking-wider rounded-none border-2 border-black"
-            >
-              Reset Filters
-            </button>
+            {navTab !== "saved" && (
+              <button
+                onClick={() => setFilterOptions(DEFAULT_FILTER_OPTIONS)}
+                className="px-4 py-2 bg-amber-500 text-black font-extrabold text-xs uppercase tracking-wider rounded-none border-2 border-black"
+              >
+                Reset Filters
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      <AppNav
+        active={navTab}
+        onChange={(t) => {
+          setNavTab(t);
+          if (t === "brief") setShowBrief(true);
+          if (t === "settings") setScreen("setup");
+        }}
+        savedCount={savedCount}
+      />
 
       <FilterModal
         isOpen={isFilterOpen}
