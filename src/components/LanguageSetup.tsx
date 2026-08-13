@@ -21,7 +21,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
     onDone(uiLocale, narrateLang);
   };
 
-  const isRtl = uiLocale === "dv";
+  const isRtl = false; // UI is always English/LTR — Dhivehi is content-only
 
   return (
     <div

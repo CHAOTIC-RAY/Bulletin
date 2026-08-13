@@ -3,7 +3,7 @@ import type { FeedItem } from "../lib/feedStorage";
 import { getBriefSettings, filterItemsForBrief, getAvailableSourceTitles } from "../lib/feedStorage";
 import { buildDailyBrief, type BriefArticleInput, type GeneratedDailyBrief } from "../lib/generateNewsBrief";
 import { BulletinTts } from "../lib/ttsPlayer";
-import { t, getLocale } from "../lib/i18n";
+import { t, getLocale, getContentLocale } from "../lib/i18n";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Volume2, VolumeX, Sparkles, ArrowUpRight } from "lucide-react";
 import { textDirection } from "../lib/textDirection";
@@ -626,7 +626,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
     );
   };
 
-  const isRtl = locale === "dv";
+  const isRtl = getContentLocale() === "dv";
 
   const overlay = isModalOpen
     ? createPortal(

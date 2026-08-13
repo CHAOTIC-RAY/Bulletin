@@ -2,10 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import type { FeedItem } from "../lib/feedStorage";
 import { textDirection } from "../lib/textDirection";
 import { BulletinTts } from "../lib/ttsPlayer";
-import { t, getLocale } from "../lib/i18n";
+import { t, getContentLocale } from "../lib/i18n";
 import { createPortal } from "react-dom";
-import { cleanArticleHtml, cleanTtsText, getDisplayHeadline, containsThaana } from "../lib/feedSanitize";
-import { getContentLocale } from "../lib/i18n";
+import { cleanArticleHtml, cleanTtsText, getDisplayHeadline } from "../lib/feedSanitize";
 
 interface Props {
   item: FeedItem | null;
@@ -32,7 +31,10 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
   const displayHeadline =
     contentLocale === "dv" ? getDisplayHeadline(item.title, item.content || item.summary || "") : item.title;
   const dir = textDirection(displayHeadline);
-  const locale = getLocale();
+
+  // The reader container goes RTL + Thaana font ONLY for Dhivehi articles,
+  // never for the English UI shell.
+  const isRtl = contentLocale === "dv";
 
   const ensureTts = () => {
     if (!ttsRef.current) {
@@ -64,8 +66,6 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
     tts.play(text);
     setPlaying(true);
   };
-
-  const isRtl = locale === "dv";
 
   return createPortal(
     <div dir={isRtl ? "rtl" : "ltr"} className={`fixed inset-0 z-[9999] bg-neutral-50 text-neutral-900 flex flex-col dark:bg-neutral-950 dark:text-white ${isRtl ? "font-thaana" : ""}`} style={{ height: "100dvh" }}>

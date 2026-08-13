@@ -11,3 +11,6 @@ probe_all_results.json
 
 lb3.js
 livebundle.js
+
+# Hermes desktop artifacts
+.hermes/

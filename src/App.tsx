@@ -12,7 +12,7 @@ import {
 } from "./lib/feedStorage";
 import { refreshAllSubscriptions, collectArticleImages } from "./lib/feedClient";
 import { isAdOrPromotional, matchItemTopic } from "./lib/feedEnrich";
-import { getLocale, setLocale, getContentLocale, setContentLocale, localeIsRtl, LocaleCode, t } from "./lib/i18n";
+import { getLocale, getContentLocale, setContentLocale, LocaleCode, t } from "./lib/i18n";
 import BulletinFeedScroll from "./components/BulletinFeedScroll";
 import MagazineFeedScroll from "./components/MagazineFeedScroll";
 import DailyBriefCard from "./components/DailyBriefCard";
@@ -25,8 +25,20 @@ type Screen = "setup" | "home";
 type ViewMode = "immersive" | "magazine";
 
 export default function App() {
+  // MIGRATION: older clients stored bulletin_locale="dv" to mean "read Dhivehi
+  // news". The UI is now ALWAYS English (bulletin_locale="en"); Dhivehi content
+  // is tracked via bulletin_content_locale. Migrate any stale "dv" UI setting
+  // here so the app shell never renders RTL/Thaana on mount.
+  if (typeof window !== "undefined" && getLocale() === "dv" && getContentLocale() !== "dv") {
+    try { localStorage.setItem("bulletin_locale", "en"); } catch {}
+  }
+  // The UI is ALWAYS English/LTR. Dhivehi news+Thaana is a *content* choice
+  // tracked separately via bulletin_content_locale. Drive document direction
+  // from the content locale (not the UI locale) so the RTL/Thaana font only
+  // applies to Dhivehi articles in the reader, never to the English UI shell.
+  const [contentLocale, setContentLocaleState] = useState<"en" | "dv">(() => getContentLocale());
+  const uiLocale: LocaleCode = "en";
   const [screen, setScreen] = useState<Screen>("setup");
-  const [uiLocale, setUiLocale] = useState<LocaleCode>(getLocale());
   const [narrateLang, setNarrateLang] = useState<string>(
     localStorage.getItem("bulletin_narrate_lang") || "en-US"
   );
@@ -54,8 +66,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.dir = localeIsRtl(uiLocale) ? "rtl" : "ltr";
-  }, [uiLocale]);
+    // The app UI is ALWAYS LTR/English, even in Dhivehi news mode. Only the
+    // reader article containers (FeedReader/DailyBriefCard) set dir="rtl" +
+    // the Thaana font for Dhivehi articles. Do NOT flip the document here.
+    document.documentElement.dir = "ltr";
+    document.documentElement.lang = "en";
+    document.documentElement.style.fontFamily = "inherit";
+  }, []);
 
   const loadFeeds = async () => {
     const subs = ensureDefaultSubscriptions().filter(isFeedSubscriptionEnabled);
@@ -82,20 +99,21 @@ export default function App() {
     // real switch and clear stale feeds that would otherwise linger.
     const prevContent = getContentLocale();
 
-    // Dhivehi is a *content/news* choice, not a UI choice. The UI stays in
-    // English (LTR) so only the news sources + TTS switch to Dhivehi/Thaana.
-    // This avoids translating every UI label while still giving a purely
-    // Dhivehi news-reading + listening experience.
+    // HARD GUARANTEE: the UI is ALWAYS English (LTR). Dhivehi is purely a
+    // content/news + TTS choice. bulletin_locale is forced to "en" in the
+    // component initializer (above) so the app shell never renders RTL/Thaana.
+    // Here we only move the *content* locale, which drives feed sources + TTS
+    // + the reader's RTL/Thaana styling for Dhivehi articles.
+    const newContent = isDv ? "dv" : "en";
+    setContentLocaleState(newContent);
+    setContentLocale(newContent);
+
     if (isDv) {
-      setContentLocale("dv");
       localStorage.setItem("bulletin_narrate_lang", "dv-MV");
       localStorage.setItem("bulletin_tts_engine", "dhivehi");
       localStorage.setItem("bulletin_dhivehi_gender", "f");
       setNarrateLang("dv-MV");
     } else {
-      setContentLocale("en");
-      setUiLocale(ui); // English UI
-      setLocale(ui);
       setNarrateLang(narr);
       localStorage.setItem("bulletin_narrate_lang", narr);
     }
@@ -176,7 +194,8 @@ export default function App() {
         /[\u0780-\u07BF]/.test(item.title) ||
         /[\u0780-\u07BF]/.test(item.summary || "") ||
         /[\u0780-\u07BF]/.test(item.content || "");
-      if (uiLocale !== "dv" && isThaana) {
+      // Show Thaana (Dhivehi) articles only when the content locale is Dhivehi.
+      if (contentLocale !== "dv" && isThaana) {
         return false;
       }
 
@@ -246,7 +265,7 @@ export default function App() {
   const isImmersive = viewMode === "immersive";
 
   return (
-    <div className={`h-[100dvh] w-full overflow-hidden transition-colors duration-500 ${uiLocale === "dv" ? "font-thaana" : ""} ${isImmersive ? 'bg-neutral-950 text-white' : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white'}`}>
+    <div className={`h-[100dvh] w-full overflow-hidden transition-colors duration-500 ${isImmersive ? 'bg-neutral-950 text-white' : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white'}`}>
       
       {/* Top Header Navigation */}
       <div className={`absolute top-0 left-0 right-0 px-4 pt-6 pb-4 transition-all duration-300 pointer-events-none ${isImmersive ? 'z-50' : 'z-40'}`}>

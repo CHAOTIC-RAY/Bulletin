@@ -5,7 +5,8 @@ import { t, getLocale } from "../lib/i18n";
 import AutoImageReel from "./AutoImageReel";
 import { BulletinTts } from "../lib/ttsPlayer";
 import { Volume2, VolumeX, SlidersHorizontal } from "lucide-react";
-import { cleanArticleHtml as sanitize, cleanTtsText, extractImagesFromHtml } from "../lib/feedSanitize";
+import { cleanArticleHtml as sanitize, cleanTtsText, getDisplayHeadline, extractImagesFromHtml } from "../lib/feedSanitize";
+import { getContentLocale } from "../lib/i18n";
 
 interface Props {
   items: FeedItem[];
@@ -119,7 +120,11 @@ export default function BulletinFeedScroll({
       },
     });
 
-    tts.play(item.title);
+    const headline =
+      getContentLocale() === "dv"
+        ? getDisplayHeadline(item.title, item.content || item.summary || "")
+        : item.title;
+    tts.play(headline);
   };
 
   useEffect(() => {
