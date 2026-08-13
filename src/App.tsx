@@ -50,7 +50,9 @@ export default function App() {
   const [selected, setSelected] = useState<FeedItem | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoading, setInitialLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("immersive");
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    () => (localStorage.getItem("bulletin_default_view") as ViewMode) || "immersive"
+  );
   const [navTab, setNavTab] = useState<NavTab>("feed");
   const [showBrief, setShowBrief] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);

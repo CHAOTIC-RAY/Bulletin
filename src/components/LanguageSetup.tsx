@@ -1,15 +1,18 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { LocaleCode, getLocale, t } from "../lib/i18n";
 import TtsSettings from "./TtsSettings";
 import SourcesPanel from "./SourcesPanel";
 import BriefSettingsPanel from "./BriefSettingsPanel";
 import WeatherSettingsPanel from "./WeatherSettingsPanel";
+import { BulletinTts } from "../lib/ttsPlayer";
+import LoadingPile from "./LoadingPile";
 import {
   Mic,
   Globe,
   Sliders,
   ArrowLeft,
   Newspaper,
+  BookOpen,
   Check,
   ChevronRight,
   Sparkles,
@@ -20,7 +23,9 @@ import {
   MapPin,
   Maximize2,
   Minimize2,
-  Palette
+  Palette,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import type { FeedItem } from "../lib/feedStorage";
 import { getBriefSettings, getFeedSubscriptions } from "../lib/feedStorage";
@@ -37,6 +42,34 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     return (localStorage.getItem("bulletin_theme") as "light" | "dark") || "dark";
   });
+
+  // First-run welcome: chosen default reading mode (persisted so the app opens there).
+  const [defaultView, setDefaultView] = useState<"immersive" | "magazine">(
+    () => (localStorage.getItem("bulletin_default_view") as "immersive" | "magazine") || "immersive"
+  );
+
+  // Live TTS sample using the real BulletinTts engine.
+  const sampleRef = useRef<BulletinTts | null>(null);
+  const [samplePlaying, setSamplePlaying] = useState(false);
+  const playSample = () => {
+    if (!sampleRef.current) {
+      sampleRef.current = new BulletinTts({
+        onEnded: () => setSamplePlaying(false),
+        onError: () => setSamplePlaying(false),
+      });
+    }
+    const tts = sampleRef.current;
+    if (samplePlaying) {
+      tts.stop();
+      setSamplePlaying(false);
+      return;
+    }
+    setSamplePlaying(true);
+    void tts.play(
+      "Bulletin brings you the day's stories, read aloud the moment you open them."
+    );
+  };
+  useEffect(() => () => sampleRef.current?.stop(), []);
 
   // Keep track of which accordion categories are expanded
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
@@ -88,6 +121,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
   };
 
   const handleComplete = () => {
+    localStorage.setItem("bulletin_default_view", defaultView);
     onDone(uiLocale, narrateLang);
   };
 
@@ -119,6 +153,76 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
     >
       {/* Newspaper Grain Texture */}
       <div className="absolute inset-0 bg-noise pointer-events-none opacity-[0.03] dark:opacity-[0.02] z-40" />
+
+      {/* ── Welcome hero (first-run) ── */}
+      <section className="relative z-10 max-w-5xl mx-auto px-4 pt-10 pb-6 text-center">
+        <div className="mx-auto mb-4 w-20 h-24 flex items-center justify-center">
+          <svg viewBox="0 0 194.16 232.77" className="w-14 h-16 text-amber drop-shadow-[3px_3px_0_rgba(0,0,0,0.85)] dark:drop-shadow-[3px_3px_0_rgba(255,255,255,0.2)]">
+            <path fill="currentColor" d="M194.16,54.97l-6.1,32.94-27.9,24.53,33.82,28.24.03,61.02-33.94,31-141.93.06,36.14-31.52-54.28-.27V.32s130.88-.14,130.88-.14l-.02,31.91-96.06.02.13,141.1L173.69,55.24l-33.37-.25.34-54.99,53.5,54.97ZM159.38,200.81l-.08-87.68-103.43,87.66,103.51.03Z" />
+          </svg>
+        </div>
+        <h1 className="font-serif font-black text-4xl sm:text-5xl tracking-tight text-neutral-950 dark:text-white">Bulletin</h1>
+        <p className="mt-2 text-sm sm:text-base text-neutral-500 dark:text-neutral-400 max-w-md mx-auto">
+          Your day, bound like a newspaper. Pick how you'd like to read, then fine-tune your paper below.
+        </p>
+
+        {/* Reading-mode chooser */}
+        <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
+          <button
+            onClick={() => setDefaultView("immersive")}
+            aria-pressed={defaultView === "immersive"}
+            className={`group relative border-2 rounded-none p-5 transition-all duration-150 ${
+              defaultView === "immersive"
+                ? "bg-amber-500 text-black border-neutral-950 shadow-[4px_4px_0px_rgba(0,0,0,0.9)]"
+                : "bg-[#faf6ec] dark:bg-[#1a1815] border-neutral-950/20 dark:border-white/15 hover:border-amber-500"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Newspaper className="w-5 h-5" />
+              <span className="font-serif font-black text-lg">Immersive</span>
+            </div>
+            <p className={`text-xs ${defaultView === "immersive" ? "text-black/80" : "text-neutral-500 dark:text-neutral-400"}`}>
+              One full-screen story at a time with cinematic imagery. Swipe to read.
+            </p>
+            {defaultView === "immersive" && (
+              <span className="absolute top-3 right-3 text-xs font-black">✓</span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setDefaultView("magazine")}
+            aria-pressed={defaultView === "magazine"}
+            className={`group relative border-2 rounded-none p-5 transition-all duration-150 ${
+              defaultView === "magazine"
+                ? "bg-amber-500 text-black border-neutral-950 shadow-[4px_4px_0px_rgba(0,0,0,0.9)]"
+                : "bg-[#faf6ec] dark:bg-[#1a1815] border-neutral-950/20 dark:border-white/15 hover:border-amber-500"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <BookOpen className="w-5 h-5" />
+              <span className="font-serif font-black text-lg">Magazine</span>
+            </div>
+            <p className={`text-xs ${defaultView === "magazine" ? "text-black/80" : "text-neutral-500 dark:text-neutral-400"}`}>
+              A sectioned front page — headlines, grids and the Daily Paper at a glance.
+            </p>
+            {defaultView === "magazine" && (
+              <span className="absolute top-3 right-3 text-xs font-black">✓</span>
+            )}
+          </button>
+        </div>
+
+        {/* Live TTS sample */}
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <button
+            onClick={playSample}
+            className="inline-flex items-center gap-2 px-4 py-2 border-2 border-neutral-950 dark:border-white/30 rounded-none bg-white dark:bg-[#1a1815] text-neutral-950 dark:text-white font-bold text-sm hover:bg-amber-500 hover:text-black transition-colors"
+          >
+            {samplePlaying ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            {samplePlaying ? "Stop sample" : "Hear a sample"}
+          </button>
+          <span className="text-xs text-neutral-400">Listen in your voice of choice</span>
+        </div>
+      </section>
 
       {/* Top Sticky Header */}
       <div className="sticky top-0 z-50 bg-[#f5f1e6]/95 dark:bg-[#12110e]/95 backdrop-blur-md border-b-2 border-neutral-950 dark:border-neutral-700 px-4 py-3 flex items-center justify-between">
