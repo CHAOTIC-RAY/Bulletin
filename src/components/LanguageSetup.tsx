@@ -19,7 +19,8 @@ import {
   Layers,
   MapPin,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Palette
 } from "lucide-react";
 import type { FeedItem } from "../lib/feedStorage";
 import { getBriefSettings, getFeedSubscriptions } from "../lib/feedStorage";
@@ -33,11 +34,15 @@ interface Props {
 export default function LanguageSetup({ onDone, items = [] }: Props) {
   const [uiLocale, setUiLocale] = useState<LocaleCode>(getLocale());
   const [narrateLang, setNarrateLang] = useState("en-US");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    return (localStorage.getItem("bulletin_theme") as "light" | "dark") || "dark";
+  });
 
   // Keep track of which accordion categories are expanded
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     tts: true,
     language: false,
+    appearance: false,
     sources: false,
     brief: false,
     weather: false,
@@ -54,6 +59,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
     setExpanded({
       tts: true,
       language: true,
+      appearance: true,
       sources: true,
       brief: true,
       weather: true,
@@ -64,10 +70,21 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
     setExpanded({
       tts: false,
       language: false,
+      appearance: false,
       sources: false,
       brief: false,
       weather: false,
     });
+  };
+
+  const handleSelectTheme = (newTheme: "light" | "dark") => {
+    setTheme(newTheme);
+    localStorage.setItem("bulletin_theme", newTheme);
+    if (newTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   };
 
   const handleComplete = () => {
@@ -367,7 +384,96 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
               )}
             </div>
 
-            {/* 3. News Sources */}
+            {/* 3. App Appearance */}
+            <div className="bg-[#faf6ec] dark:bg-[#1a1815] border-2 border-neutral-950 dark:border-neutral-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] rounded-none overflow-hidden">
+              <button
+                onClick={() => toggleSection("appearance")}
+                className="w-full p-4 md:p-5 flex items-center justify-between text-left hover:bg-neutral-950/5 dark:hover:bg-white/5 transition-all border-b-2 border-neutral-950 dark:border-neutral-700"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-10 h-10 rounded-none border-2 border-neutral-950 dark:border-neutral-700 bg-[#f5f1e6] dark:bg-[#201e1a] text-neutral-950 dark:text-white flex items-center justify-center shrink-0 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                    <Palette className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm md:text-base font-serif font-black text-neutral-950 dark:text-white">
+                      App Appearance
+                    </h3>
+                    <p className="text-[11px] text-neutral-500 truncate">
+                      Switch between Light Mode and Dark Mode styling
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="hidden sm:inline-block text-[10px] font-mono bg-neutral-950/5 dark:bg-white/5 border border-neutral-950/10 dark:border-white/10 px-2 py-0.5 font-black uppercase">
+                    {theme === "dark" ? "DARK MODE" : "LIGHT MODE"}
+                  </span>
+                  {expanded.appearance ? (
+                    <ChevronDown className="w-5 h-5 text-neutral-950 dark:text-white rotate-180 transition-transform duration-300" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-neutral-500 transition-transform duration-300" />
+                  )}
+                </div>
+              </button>
+
+              {expanded.appearance && (
+                <div className="p-4 md:p-6 space-y-4 bg-[#faf6ec] dark:bg-[#1a1815]">
+                  <div className="space-y-1">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-400 px-1">
+                      Select Theme
+                    </h2>
+                    <p className="text-xs text-neutral-500 px-1">
+                      Choose between a high-contrast dark aesthetic or a clean light paper layout.
+                    </p>
+                  </div>
+
+                  <div className="rounded-none bg-[#f2eee3] dark:bg-[#131210] border-2 border-neutral-950 dark:border-neutral-700 overflow-hidden divide-y divide-neutral-950/10 dark:divide-white/10">
+                    {/* Light Mode Button */}
+                    <button
+                      onClick={() => handleSelectTheme("light")}
+                      className="w-full p-4 flex items-center justify-between text-left hover:bg-neutral-950/5 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">☀️</span>
+                        <div>
+                          <div className="text-sm font-bold text-neutral-950 dark:text-white">Light Mode</div>
+                          <div className="text-xs text-neutral-500">Elegant, clean newspaper style layout</div>
+                        </div>
+                      </div>
+                      {theme === "light" ? (
+                        <div className="w-6 h-6 rounded-none border border-black/30 bg-amber-500 text-black flex items-center justify-center font-bold">
+                          <Check className="w-4 h-4 stroke-[3]" />
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 rounded-none border-2 border-neutral-950/20 dark:border-white/20" />
+                      )}
+                    </button>
+
+                    {/* Dark Mode Button */}
+                    <button
+                      onClick={() => handleSelectTheme("dark")}
+                      className="w-full p-4 flex items-center justify-between text-left hover:bg-neutral-950/5 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">🌙</span>
+                        <div>
+                          <div className="text-sm font-bold text-neutral-950 dark:text-white">Dark Mode</div>
+                          <div className="text-xs text-neutral-500">High-contrast, eye-friendly ambient layout</div>
+                        </div>
+                      </div>
+                      {theme === "dark" ? (
+                        <div className="w-6 h-6 rounded-none border border-black/30 bg-amber-500 text-black flex items-center justify-center font-bold">
+                          <Check className="w-4 h-4 stroke-[3]" />
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 rounded-none border-2 border-neutral-950/20 dark:border-white/20" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 4. News Sources */}
             <div className="bg-[#faf6ec] dark:bg-[#1a1815] border-2 border-neutral-950 dark:border-neutral-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] rounded-none overflow-hidden">
               <button
                 onClick={() => toggleSection("sources")}
@@ -405,7 +511,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
               )}
             </div>
 
-            {/* 4. Daily Brief */}
+            {/* 5. Daily Brief */}
             <div className="bg-[#faf6ec] dark:bg-[#1a1815] border-2 border-neutral-950 dark:border-neutral-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] rounded-none overflow-hidden">
               <button
                 onClick={() => toggleSection("brief")}
@@ -443,7 +549,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
               )}
             </div>
 
-            {/* 5. Weather */}
+            {/* 6. Weather */}
             <div className="bg-[#faf6ec] dark:bg-[#1a1815] border-2 border-neutral-950 dark:border-neutral-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] rounded-none overflow-hidden">
               <button
                 onClick={() => toggleSection("weather")}

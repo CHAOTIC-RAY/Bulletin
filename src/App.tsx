@@ -52,6 +52,10 @@ export default function App() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(DEFAULT_FILTER_OPTIONS);
 
+  const [theme, setThemeState] = useState<"light" | "dark">(() => {
+    return (localStorage.getItem("bulletin_theme") as "light" | "dark") || "dark";
+  });
+
   useEffect(() => {
     // If a previous session configured sources, skip setup.
     const subs = ensureDefaultSubscriptions();
@@ -75,7 +79,15 @@ export default function App() {
     document.documentElement.dir = "ltr";
     document.documentElement.lang = "en";
     document.documentElement.style.fontFamily = "inherit";
-  }, []);
+
+    // Set theme class on document element
+    const currentTheme = localStorage.getItem("bulletin_theme") || "dark";
+    if (currentTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [theme]);
 
   const loadFeeds = async () => {
     const subs = ensureDefaultSubscriptions().filter(isFeedSubscriptionEnabled);
@@ -121,6 +133,10 @@ export default function App() {
       localStorage.setItem("bulletin_narrate_lang", narr);
     }
 
+    // Update local state theme to match localStorage
+    const currentTheme = (localStorage.getItem("bulletin_theme") as "light" | "dark") || "dark";
+    setThemeState(currentTheme);
+
     // Re-snapshot to confirm whether the content locale actually changed.
     const nowContent = getContentLocale();
     const groups = getTopicFeedGroups();
@@ -135,8 +151,11 @@ export default function App() {
     if (prevContent !== nowContent) {
       saveFeedSubscriptions([]);
       saveFeedItems([]);
+      applySelectedFeedSources(topicIds);
+    } else if (getFeedSubscriptions().length === 0) {
+      applySelectedFeedSources(topicIds);
     }
-    applySelectedFeedSources(topicIds);
+
     setScreen("home");
     setItems(getFeedItems());
     
