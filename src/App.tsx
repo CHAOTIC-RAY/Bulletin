@@ -425,8 +425,12 @@ export default function App() {
       <FeedReader item={selected} narrateLang={narrateLang} onClose={() => setSelected(null)} />
 
       {refreshing && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
-          <LoadingPile bare />
+        // Lightweight, NON-blurring indicator so the feed stays sharp while the
+        // background refresh runs. (The full LoadingPile animation is shown on
+        // cold load via the initialLoading gate above.)
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9998] flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-white/90 text-xs pointer-events-none shadow-lg">
+          <span className="inline-block h-3 w-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+          Updating…
         </div>
       )}
     </div>
