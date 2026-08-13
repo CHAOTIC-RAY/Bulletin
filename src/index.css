@@ -30,16 +30,68 @@ body,
   scrollbar-width: none;
 }
 
-/* Dhivehi (Thaana) font fallback */
+/* Dhivehi (Thaana) fonts
+ *  - Titles/headlines  -> "Mv MAG Round" (drop public/fonts/MvMAGRound.woff2 into
+ *    the repo to use the real face). Until that file is present we fall back to
+ *    Tharujamaanu (a rounded, geometric Thaana face) so titles look correct now.
+ *  - Body/details       -> Faruma (bundled locally; also referenced from jsDelivr).
+ *  We deliberately DO NOT fall back to Arabic Nastaliq faces (Noto Nastaliq Urdu
+ *  etc.) — they render Thaana with wrong metrics and oversized glyphs.
+ */
+@font-face {
+  font-family: "Faruma";
+  src: url("/fonts/Faruma.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+/* Secondary source so a fresh deploy without the local file still works. */
 @font-face {
   font-family: "Faruma";
   src: url("https://cdn.jsdelivr.net/gh/siyamex/dhivehifont/Faruma.ttf") format("truetype");
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
 }
 
+/* Rounded Thaana display face used for titles. Tharujamaanu is the bundled
+ * stand-in; Mv MAG Round takes over automatically once its file is dropped in. */
+@font-face {
+  font-family: "Tharujamaanu";
+  src: url("/fonts/Tharujamaanu-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Tharujamaanu";
+  src: url("/fonts/Tharujamaanu-Light.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The real title face the user supplied (Mv MAG Round Bold). Drop an additional
+ * MvMAGRound.otf (regular) into public/fonts/ to cover lighter weights; the Bold
+ * file is used for both normal + bold so headlines always render in Mv MAG Round. */
+@font-face {
+  font-family: "Mv MAG Round";
+  src: url("/fonts/MvMAGRound-Bold.otf") format("opentype");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Body/detail text: genuine Faruma. */
 .font-thaana {
-  font-family: "Faruma", "MV Boli", "ThaanaFonts", "Microsoft Uighur", "Noto Nastaliq Urdu", serif;
+  font-family: "Faruma", "MV Boli", serif;
+  font-feature-settings: "liga" 1;
+}
+
+/* Titles/headlines: Mv MAG Round (or Tharujamaanu until the real file is added). */
+.font-thaana-title {
+  font-family: "Mv MAG Round", "Tharujamaanu", "Faruma", "MV Boli", serif;
+  font-feature-settings: "liga" 1;
 }
 
 /* Ken Burns motion for single-image hero (dimension-aware in component) */

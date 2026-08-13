@@ -80,7 +80,7 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 max-w-2xl mx-auto w-full">
-        <h1 dir={dir} className={`text-2xl font-bold leading-tight mb-4 ${dir === "rtl" ? "font-thaana text-right" : ""}`}>{displayHeadline}</h1>
+        <h1 dir={dir} className={`text-2xl font-bold leading-tight mb-4 ${dir === "rtl" ? "font-thaana-title text-right" : ""}`}>{displayHeadline}</h1>
 
         {item.imageUrl && (
           <img src={item.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full rounded-none border-2 border-neutral-950 dark:border-neutral-700 mb-4 object-cover" />

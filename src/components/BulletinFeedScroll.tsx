@@ -334,7 +334,7 @@ export default function BulletinFeedScroll({
                 dir={dir}
                 className={`text-xl md:text-3xl font-bold leading-tight mb-3 ${
                   isExpanded ? "" : "line-clamp-4"
-                } ${dir === "rtl" ? "font-thaana" : ""}`}
+                } ${dir === "rtl" ? "font-thaana-title" : ""}`}
               >
                 {item.title}
               </h2>

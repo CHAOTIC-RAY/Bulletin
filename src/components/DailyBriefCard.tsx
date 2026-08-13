@@ -293,7 +293,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
               <h2
                 dir={dir}
                 className={`font-serif font-black leading-tight text-neutral-950 dark:text-white text-lg sm:text-xl md:text-2xl ${
-                  dir === "rtl" ? "font-thaana text-right" : ""
+                  dir === "rtl" ? "font-thaana-title text-right" : ""
                 }`}
               >
                 {art.headline}

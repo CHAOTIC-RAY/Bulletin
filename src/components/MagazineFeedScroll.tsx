@@ -272,7 +272,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
                 <h2
                   dir={dir}
                   className={`font-serif font-black leading-tight text-neutral-950 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors text-xl sm:text-2xl md:text-3xl ${
-                    dir === "rtl" ? "font-thaana text-right" : ""
+                    dir === "rtl" ? "font-thaana-title text-right" : ""
                   }`}
                 >
                   {art.headline}
@@ -384,7 +384,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
             <h2
               dir={dir}
               className={`font-serif font-black text-white group-hover:text-amber-400 transition-colors text-lg sm:text-xl md:text-2xl leading-tight ${
-                dir === "rtl" ? "font-thaana text-right" : ""
+                dir === "rtl" ? "font-thaana-title text-right" : ""
               }`}
             >
               {art.headline}
@@ -454,7 +454,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
             <h2
               dir={dir}
               className={`font-serif font-black leading-snug text-neutral-950 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors text-lg sm:text-xl ${
-                dir === "rtl" ? "font-thaana text-right" : ""
+                dir === "rtl" ? "font-thaana-title text-right" : ""
               }`}
             >
               {art.headline}
