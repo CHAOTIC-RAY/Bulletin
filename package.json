@@ -10,9 +10,16 @@
     "preview": "vite preview",
     "cf:dev": "wrangler dev",
     "deploy": "npm run build && wrangler deploy",
+    "build:apk-web": "vite build",
+    "cap:sync": "npx cap sync android",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/local-notifications": "^8.2.1",
     "@google/genai": "^2.16.0",
     "@mozilla/readability": "^0.6.0",
     "@tailwindcss/vite": "^4.3.3",
@@ -36,6 +43,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^5.5.4",
     "vite": "^5.4.0",
+    "vite-plugin-compression2": "^2.5.3",
     "wrangler": "^4.0.0"
   }
 }

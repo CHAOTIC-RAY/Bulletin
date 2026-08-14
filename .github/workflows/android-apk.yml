@@ -1,0 +1,291 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "Cloudflare Worker / API origin (no trailing slash)"
+        required: false
+        default: ""
+      publish_release:
+        description: "Publish GitHub Release"
+        required: true
+        default: true
+        type: boolean
+  push:
+    branches: [main, beta]
+    # Only rebuild the APK when a change can actually affect it.
+    paths:
+      - "android/**"
+      - "src/**"
+      - "public/**"
+      - "assets/**"
+      - "index.html"
+      - "capacitor.config.ts"
+      - "vite.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "bun.lock"
+      - "wrangler.jsonc"
+      - ".github/workflows/android-apk.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "android/**"
+      - "src/**"
+      - "public/**"
+      - "assets/**"
+      - "index.html"
+      - "capacitor.config.ts"
+      - "vite.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - "bun.lock"
+      - "wrangler.jsonc"
+      - ".github/workflows/android-apk.yml"
+
+concurrency:
+  group: android-apk-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Assemble & release Bulletin APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      JAVA_VERSION: "21"
+      NODE_VERSION: "22"
+      ANDROID_COMPILE_SDK: "35"
+      ANDROID_BUILD_TOOLS: "35.0.0"
+      VITE_API_BASE_URL: ${{ github.event.inputs.api_base_url || vars.VITE_API_BASE_URL || 'https://ticstudio.workers.dev' }}
+      VITE_APP_CHANNEL: ${{ github.ref_name == 'beta' && 'beta' || 'production' }}
+      VITE_APK_VERSION: 1.0.${{ github.run_number }}
+      BULLETIN_VERSION_NAME: 1.0.${{ github.run_number }}
+      BULLETIN_VERSION_CODE: ${{ github.run_number }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Clean install dependencies
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --no-audit --no-fund --omit=optional
+          npm install @rollup/rollup-linux-x64-gnu --no-save --no-audit --no-fund || true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-${ANDROID_COMPILE_SDK}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}"
+          yes | sdkmanager --licenses >/dev/null || true
+
+      - name: Build web assets for APK
+        run: |
+          echo "API base → $VITE_API_BASE_URL"
+          echo "Channel  → $VITE_APP_CHANNEL"
+          echo "APK ver  → $VITE_APK_VERSION"
+          npm run build:apk-web
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Configure signing keystore
+        id: signing
+        env:
+          BULLETIN_UPLOAD_KEYSTORE_BASE64: ${{ secrets.BULLETIN_UPLOAD_KEYSTORE_BASE64 }}
+          BULLETIN_UPLOAD_STORE_PASSWORD: ${{ secrets.BULLETIN_UPLOAD_STORE_PASSWORD }}
+          BULLETIN_UPLOAD_KEY_ALIAS: ${{ secrets.BULLETIN_UPLOAD_KEY_ALIAS }}
+          BULLETIN_UPLOAD_KEY_PASSWORD: ${{ secrets.BULLETIN_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "${BULLETIN_UPLOAD_KEYSTORE_BASE64:-}" ]; then
+            echo "$BULLETIN_UPLOAD_KEYSTORE_BASE64" | base64 -d > android/app/bulletin-upload.keystore
+            STORE_FILE="bulletin-upload.keystore"
+            STORE_PASS="$BULLETIN_UPLOAD_STORE_PASSWORD"
+            KEY_ALIAS="$BULLETIN_UPLOAD_KEY_ALIAS"
+            KEY_PASS="$BULLETIN_UPLOAD_KEY_PASSWORD"
+            SIGNING_SOURCE="upload-secret"
+          else
+            echo "BULLETIN_UPLOAD_KEYSTORE_BASE64 is not set in this repo's GitHub secrets."
+            echo "Add BULLETIN_UPLOAD_KEYSTORE_BASE64, BULLETIN_UPLOAD_STORE_PASSWORD, BULLETIN_UPLOAD_KEY_ALIAS, and BULLETIN_UPLOAD_KEY_PASSWORD to the repo secrets, then re-run."
+            exit 1
+          fi
+
+          {
+            echo "BULLETIN_UPLOAD_STORE_FILE=$STORE_FILE"
+            echo "BULLETIN_UPLOAD_STORE_PASSWORD=$STORE_PASS"
+            echo "BULLETIN_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
+            echo "BULLETIN_UPLOAD_KEY_PASSWORD=$KEY_PASS"
+            echo "SIGNING_SOURCE=$SIGNING_SOURCE"
+          } >> "$GITHUB_ENV"
+
+          KEYTOOL_OUT=$(keytool -list -v \
+            -keystore "android/app/$STORE_FILE" \
+            -storetype PKCS12 \
+            -alias "$KEY_ALIAS" \
+            -storepass "$STORE_PASS" 2>/dev/null) || KEYTOOL_OUT=""
+
+          SHA1=$(echo "$KEYTOOL_OUT" | sed -n 's/.*SHA1: //p' | head -n1 | tr -d '[:space:]')
+          SHA256=$(echo "$KEYTOOL_OUT" | sed -n 's/.*SHA256: //p' | head -n1 | tr -d '[:space:]')
+
+          echo "sha1=$SHA1" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "source=$SIGNING_SOURCE" >> "$GITHUB_OUTPUT"
+          echo "alias=$KEY_ALIAS" >> "$GITHUB_OUTPUT"
+
+          mkdir -p artifacts
+          {
+            echo "Bulletin Android signing fingerprints"
+            echo "===================================="
+            echo "Version:     $BULLETIN_VERSION_NAME"
+            echo "Commit:      ${{ github.sha }}"
+            echo "Branch:      ${{ github.ref_name }}"
+            echo "Signing:     $SIGNING_SOURCE"
+            echo "Key alias:   $KEY_ALIAS"
+            echo "Application: com.chaoticray.bulletin"
+            echo ""
+            echo "SHA-1:   $SHA1"
+            echo "SHA-256: $SHA256"
+          } | tee artifacts/FINGERPRINTS.txt
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+          validate-wrappers: false
+
+      - name: Assemble Release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew || true
+          gradle assembleRelease --no-daemon --stacktrace \
+            -PBULLETIN_VERSION_CODE=$BULLETIN_VERSION_CODE \
+            -PBULLETIN_VERSION_NAME=$BULLETIN_VERSION_NAME \
+            -PBULLETIN_UPLOAD_STORE_FILE=$BULLETIN_UPLOAD_STORE_FILE \
+            -PBULLETIN_UPLOAD_STORE_PASSWORD=$BULLETIN_UPLOAD_STORE_PASSWORD \
+            -PBULLETIN_UPLOAD_KEY_ALIAS=$BULLETIN_UPLOAD_KEY_ALIAS \
+            -PBULLETIN_UPLOAD_KEY_PASSWORD=$BULLETIN_UPLOAD_KEY_PASSWORD
+
+      - name: Locate & rename APK
+        id: apk
+        run: |
+          set -euo pipefail
+          RAW=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          test -n "$RAW"
+          OUT="artifacts/Bulletin-${BULLETIN_VERSION_NAME}-${GITHUB_SHA::7}.apk"
+          mkdir -p artifacts
+          cp "$RAW" "$OUT"
+          echo "path=$OUT" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$OUT")" >> "$GITHUB_OUTPUT"
+          ls -lah "$OUT"
+          "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --print-certs "$OUT" | tee artifacts/APK_SIGNATURE.txt || true
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bulletin-android-release-${{ github.sha }}
+          path: |
+            ${{ steps.apk.outputs.path }}
+            artifacts/FINGERPRINTS.txt
+            artifacts/APK_SIGNATURE.txt
+          if-no-files-found: error
+          retention-days: 60
+
+      - name: Build release notes
+        id: notes
+        run: |
+          git fetch --unshallow --tags 2>/dev/null || git fetch --tags 2>/dev/null || true
+          PREV=$(git tag --list 'apk-v*' --sort=-v:refname | head -n1 || true)
+          if [ -n "$PREV" ]; then LOG_RANGE="$PREV..HEAD"; else LOG_RANGE="--max-count=20 HEAD"; fi
+          RAW=$(git log --no-merges --pretty=format:'%s' $LOG_RANGE 2>/dev/null || true)
+          if [ -z "$RAW" ]; then CHANGE="- (no commits in range)";
+          else
+            MAP=$(printf '%s\n' "$RAW" \
+              | grep -viE '^(chore|ci|merge|bump|wip|deps|revert)[ :]' \
+              | awk '
+                /^[aA]dd|^feat|new|implement/i { sub(/^[^:!]*[:!][ ]*/,""); gsub(/^[ \t]+/,""); print "ADD::" $0; next }
+                /^[fF]ix|bug|patch/i            { sub(/^[^:!]*[:!][ ]*/,""); gsub(/^[ \t]+/,""); print "FIX::" $0; next }
+                /^[cC]hange|refactor|update|tweak/i { sub(/^[^:!]*[:!][ ]*/,""); gsub(/^[ \t]+/,""); print "CHG::" $0; next }
+                { sub(/^[^:!]*[:!][ ]*/,""); gsub(/^[ \t]+/,""); print "OTH::" $0 }' \
+              | awk '!seen[$0]++' | head -40)
+            NA=$(printf '%s\n' "$MAP" | grep -c '^ADD::' || true)
+            NC=$(printf '%s\n' "$MAP" | grep -c '^CHG::' || true)
+            NF=$(printf '%s\n' "$MAP" | grep -c '^FIX::' || true)
+            NT=$(printf '%s\n' "$MAP" | grep -c '.' || true)
+            SUMMARY="📦 ${NT} notable commits — ✨ ${NA} added · 🔧 ${NC} changed · 🐛 ${NF} fixed"
+            BODY=$(printf '%s\n' "$MAP" | awk -F'::' '
+                $1=="ADD"{add=add"\n- ✨ "$2}
+                $1=="CHG"{chg=chg"\n- 🔧 "$2}
+                $1=="FIX"{fix=fix"\n- 🐛 "$2}
+                $1=="OTH"{oth=oth"\n- "$2}
+                END{
+                  if(add!=""){print "**Added**"; print substr(add,2)}
+                  if(chg!=""){print "**Changed**"; print substr(chg,2)}
+                  if(fix!=""){print "**Fixed**"; print substr(fix,2)}
+                  if(oth!=""){print "**Other**"; print substr(oth,2)}
+                }')
+            CHANGE=$(printf '%s\n\n%s\n' "$SUMMARY" "$BODY")
+          fi
+          {
+            echo "notes<<RELEASE_BODY"
+            echo "## Bulletin Android APK — v${BULLETIN_VERSION_NAME}"
+            echo
+            echo "Installable release build with the performance-optimized bundle, in-app update checks, and local notifications."
+            echo
+            echo "### 📝 Changelog (since \`${PREV:-initial}\`)"
+            echo "$CHANGE"
+            echo
+            echo "### 🔏 Certificate Fingerprints"
+            echo '```'
+            echo "SHA-1:   ${{ steps.signing.outputs.sha1 }}"
+            echo "SHA-256: ${{ steps.signing.outputs.sha256 }}"
+            echo '```'
+            echo
+            echo "### 📲 Install"
+            echo "1. Download \`Bulletin-${BULLETIN_VERSION_NAME}-*.apk\`"
+            echo "2. Enable install from unknown sources (if prompted)"
+            echo "3. Open the APK on your Android device"
+            echo
+            echo "The app auto-checks for updates on launch and shows an in-app banner + notification when a new APK is available."
+            echo "RELEASE_BODY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        if: >
+          github.event_name == 'push' ||
+          (github.event_name == 'workflow_dispatch' && (github.event.inputs.publish_release == 'true' || github.event.inputs.publish_release == true))
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v${{ env.BULLETIN_VERSION_NAME }}
+          name: Bulletin Android APK v${{ env.BULLETIN_VERSION_NAME }}
+          files: |
+            ${{ steps.apk.outputs.path }}
+            artifacts/FINGERPRINTS.txt
+            artifacts/APK_SIGNATURE.txt
+          fail_on_unmatched_files: true
+          generate_release_notes: false
+          draft: false
+          prerelease: ${{ github.ref_name == 'beta' }}
+          body: ${{ steps.notes.outputs.notes }}

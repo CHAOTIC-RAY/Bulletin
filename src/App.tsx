@@ -14,6 +14,8 @@ import { refreshAllSubscriptions, collectArticleImages } from "./lib/feedClient"
 import { isAdOrPromotional, matchItemTopic } from "./lib/feedEnrich";
 import { getLocale, getContentLocale, setContentLocale, LocaleCode, t } from "./lib/i18n";
 import { itemMatchesUiLocale } from "./lib/textLang";
+import { maybeAutoCheckApkUpdate } from "./lib/apkUpdater";
+import { isNativeAndroid } from "./lib/capacitorNative";
 import BulletinFeedScroll from "./components/BulletinFeedScroll";
 import MagazineFeedScroll from "./components/MagazineFeedScroll";
 import FeedReader from "./components/FeedReader";
@@ -54,6 +56,12 @@ export default function App() {
   );
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(DEFAULT_FILTER_OPTIONS);
+  const [apkUpdate, setApkUpdate] = useState<{
+    versionName: string;
+    apkUrl: string;
+    apkName: string;
+    size: number;
+  } | null>(null);
 
   const [theme, setThemeState] = useState<"light" | "dark">(() => {
     return (localStorage.getItem("bulletin_theme") as "light" | "dark") || "dark";
@@ -106,6 +114,26 @@ export default function App() {
       document.documentElement.classList.remove("dark");
     }
   }, [theme]);
+
+  // APK auto-update: check on launch (native only) + listen for update events
+  // pushed from maybeAutoCheckApkUpdate (native notification path) or from the
+  // Settings manual check. Web builds ignore this (isNativeAndroid → false).
+  useEffect(() => {
+    const onUpdate = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail?.apkUrl) {
+        setApkUpdate({
+          versionName: detail.versionName || detail.tagName || "new",
+          apkUrl: detail.apkUrl,
+          apkName: detail.apkName || "Bulletin.apk",
+          size: detail.apkSize || 0,
+        });
+      }
+    };
+    window.addEventListener("bulletin-apk-update", onUpdate as EventListener);
+    void maybeAutoCheckApkUpdate();
+    return () => window.removeEventListener("bulletin-apk-update", onUpdate as EventListener);
+  }, []);
 
   const loadFeeds = async () => {
     const subs = ensureDefaultSubscriptions().filter(isFeedSubscriptionEnabled);
@@ -362,6 +390,30 @@ export default function App() {
 
 
       <div className={`h-full w-full ${navTab === "feed" || navTab === "brief" ? "pb-20 md:pb-0 md:pl-24" : "pb-20 md:pb-0 md:pl-24"}`}>
+        {apkUpdate && (
+          <div className="sticky top-0 z-[60] flex items-center gap-3 bg-amber-500 text-black px-4 py-2 text-sm font-bold shadow-[0_3px_0_rgba(0,0,0,0.15)]">
+            <span className="flex-1 truncate">Update available — Bulletin {apkUpdate.versionName}</span>
+            <button
+              onClick={() => {
+                const a = document.createElement("a");
+                a.href = apkUpdate.apkUrl;
+                a.target = "_blank";
+                a.rel = "noopener noreferrer";
+                a.click();
+              }}
+              className="px-3 py-1 bg-black text-amber-500 text-xs font-black uppercase tracking-wider"
+            >
+              {isNativeAndroid() ? "Install" : "Download"}
+            </button>
+            <button
+              onClick={() => setApkUpdate(null)}
+              className="px-2 py-1 text-black/70 hover:text-black text-xs font-black"
+              aria-label="Dismiss update"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {navTab === "settings" ? (
           <LanguageSetup onDone={() => setNavTab("feed")} items={items} />
         ) : visibleItems.length ? (

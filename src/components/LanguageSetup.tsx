@@ -29,6 +29,17 @@ import {
 import type { FeedItem } from "../lib/feedStorage";
 import { getBriefSettings, getFeedSubscriptions } from "../lib/feedStorage";
 import { getWeatherCountryInfo, getWeatherCountry } from "../lib/weatherCountries";
+import {
+  checkForApkUpdate,
+  downloadAndInstallApk,
+  fetchLatestApkDownloadUrl,
+  isApkAutoUpdateEnabled,
+  setApkAutoUpdateEnabled,
+  type ApkReleaseInfo,
+  type DownloadProgress,
+} from "../lib/apkUpdater";
+import { isNativeAndroid } from "../lib/capacitorNative";
+import { APP_VERSION } from "../lib/appVersion";
 
 interface Props {
   onDone: (uiLocale: LocaleCode, narrateLang: string) => void;
@@ -78,6 +89,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
     sources: false,
     brief: false,
     weather: false,
+    updates: false,
   });
 
   const toggleSection = (key: string) => {
@@ -138,6 +150,53 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
   const briefSettings = useMemo(() => {
     return getBriefSettings();
   }, []);
+
+  const [updateInfo, setUpdateInfo] = useState<ApkReleaseInfo | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [installProgress, setInstallProgress] = useState<DownloadProgress | null>(null);
+  const [autoUpdate, setAutoUpdate] = useState<boolean>(() => isApkAutoUpdateEnabled());
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+
+  const runUpdateCheck = async () => {
+    setChecking(true);
+    try {
+      const res = await checkForApkUpdate();
+      setUpdateInfo(res.update);
+      if (res.update) {
+        window.dispatchEvent(
+          new CustomEvent("bulletin-apk-update", { detail: res.update })
+        );
+      }
+      if (!res.update && isNativeAndroid()) {
+        const web = await fetchLatestApkDownloadUrl();
+        setDownloadUrl(web?.url || null);
+      }
+    } catch {
+      setUpdateInfo(null);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const runInstall = async () => {
+    if (!updateInfo) return;
+    setInstalling(true);
+    setInstallProgress({ percent: 0 });
+    try {
+      await downloadAndInstallApk(updateInfo, (p) => setInstallProgress(p));
+    } catch (err) {
+      console.warn("[Settings] install failed", err);
+      // Fallback: open the APK download in the browser.
+      const a = document.createElement("a");
+      a.href = updateInfo.apkUrl;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.click();
+    } finally {
+      setInstalling(false);
+    }
+  };
 
   const activeTtsEngine = useMemo(() => {
     return localStorage.getItem("bulletin_tts_engine") || "webspeech";
@@ -243,11 +302,10 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
           </div>
         </div>
 
-      <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left column: Desktop Ledger Info Board / Sidebar (Hidden on mobile, beautiful on desktop) */}
-        <div className="lg:col-span-4 hidden lg:block sticky top-20 space-y-6">
-          <div className="bg-[#faf6ec] dark:bg-[#1a1815] border-2 border-neutral-950 dark:border-neutral-700 p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] space-y-6">
-            {/* Retro woodblock seal */}
+      <div className="w-full max-w-3xl mx-auto p-4 md:p-6 grid grid-cols-1 gap-6 items-start">
+        {/* Left column: Desktop Ledger Info Board — now a single-column card on all widths */}
+        <div className="bg-[#faf6ec] dark:bg-[#1a1815] border-2 border-neutral-950 dark:border-neutral-700 p-5 sm:p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] space-y-5">
+          {/* Retro woodblock seal */}
             <div className="border border-dashed border-neutral-950/20 dark:border-white/10 p-4 text-center relative overflow-hidden">
               <span className="text-[9px] font-mono tracking-widest text-amber-800 dark:text-amber-400 block mb-1">
                 ★★★ OFFICIAL REGISTRAR ★★★
@@ -329,8 +387,8 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
           </div>
         </div>
 
-        {/* Right column: Collapsible categories (Full width on mobile, 8-cols on desktop) */}
-        <div className="lg:col-span-8 space-y-6">
+        {/* Right column: Collapsible categories (single column) */}
+        <div className="col-span-1 space-y-6">
           {/* Mobile quick controls */}
           <div className="lg:hidden flex items-center justify-between px-1 text-xs">
             <span className="text-neutral-500 font-mono font-bold uppercase">
@@ -681,10 +739,95 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
                 </div>
               )}
             </div>
+
+            {/* 7. App Updates */}
+            <div className="bg-[#faf6ec] dark:bg-[#1a1815] border-2 border-neutral-950 dark:border-neutral-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] rounded-none overflow-hidden">
+              <button
+                onClick={() => toggleSection("updates")}
+                className="w-full p-4 md:p-5 flex items-center justify-between text-left hover:bg-neutral-950/5 dark:hover:bg-white/5 transition-all border-b-2 border-neutral-950 dark:border-neutral-700"
+              >
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-10 h-10 rounded-none border-2 border-neutral-950 dark:border-neutral-700 bg-[#f5f1e6] dark:bg-[#201e1a] text-neutral-950 dark:text-white flex items-center justify-center shrink-0 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm md:text-base font-serif font-black text-neutral-950 dark:text-white">
+                      App Updates
+                    </h3>
+                    <p className="text-[11px] text-neutral-500 truncate">
+                      Current v{APP_VERSION} · auto-check for new APK releases
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="hidden sm:inline-block text-[10px] font-mono bg-neutral-950/5 dark:bg-white/5 border border-neutral-950/10 dark:border-white/10 px-2 py-0.5 font-black uppercase">
+                    {updateInfo ? "UPDATE" : "UP TO DATE"}
+                  </span>
+                  {expanded.updates ? (
+                    <ChevronDown className="w-5 h-5 text-neutral-950 dark:text-white rotate-180 transition-transform duration-300" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-neutral-500 transition-transform duration-300" />
+                  )}
+                </div>
+              </button>
+
+              {expanded.updates && (
+                <div className="p-4 md:p-6 bg-[#faf6ec] dark:bg-[#1a1815] space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Automatic updates</p>
+                      <p className="text-xs text-neutral-500">Check on launch and notify when a new APK is available.</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const next = !autoUpdate;
+                        setAutoUpdate(next);
+                        setApkAutoUpdateEnabled(next);
+                      }}
+                      className={`relative w-12 h-7 rounded-none border-2 border-neutral-950 dark:border-white/30 transition-colors ${autoUpdate ? "bg-amber-500" : "bg-neutral-300 dark:bg-neutral-700"}`}
+                      aria-pressed={autoUpdate}
+                    >
+                      <span className={`absolute top-0.5 ${autoUpdate ? "left-6" : "left-0.5"} w-5 h-5 bg-white border-2 border-neutral-950 transition-all`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => void runUpdateCheck()}
+                      disabled={checking}
+                      className="px-4 py-2 border-2 border-neutral-950 dark:border-white/30 bg-white dark:bg-[#1a1815] text-neutral-950 dark:text-white font-bold text-sm hover:bg-amber-500 hover:text-black transition-colors disabled:opacity-50"
+                    >
+                      {checking ? "Checking…" : "Check for updates"}
+                    </button>
+                    {updateInfo && (
+                      <button
+                        onClick={() => void runInstall()}
+                        disabled={installing}
+                        className="px-4 py-2 bg-amber-500 text-black font-black text-sm border-2 border-black shadow-[2px_2px_0_rgba(0,0,0,1)] hover:bg-amber-400 active:translate-y-0.5 active:shadow-none transition-all disabled:opacity-50"
+                      >
+                        {installing ? `Installing… ${installProgress?.percent ?? 0}%` : `Install v${updateInfo.versionName}`}
+                      </button>
+                    )}
+                    {!updateInfo && downloadUrl && (
+                      <a
+                        href={downloadUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 bg-amber-500 text-black font-black text-sm border-2 border-black shadow-[2px_2px_0_rgba(0,0,0,1)] hover:bg-amber-400 transition-colors"
+                      >
+                        Download APK
+                      </a>
+                    )}
+                  </div>
+
+                  {!updateInfo && !checking && (
+                    <p className="text-xs text-neutral-500">You're on the latest version (v{APP_VERSION}).</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-
       </div>
     </div>
   );
