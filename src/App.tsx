@@ -303,7 +303,9 @@ export default function App() {
 
     // Locale-mode content gate: never mix scripts. In English mode hide any
     // Thaana (Dhivehi) item; in Dhivehi mode hide any Latin/English item.
-    const uiLang = getLocale();
+    // Key off the *content* locale (the real "Dhivehi mode" switch), not the
+    // UI locale — the UI shell is always English by design.
+    const uiLang = contentLocale as LocaleCode;
     const gated = list.filter((item) => itemMatchesUiLocale(item, uiLang));
 
     // Sorting news items
@@ -322,7 +324,7 @@ export default function App() {
       // Default: newest first
       return (b.publishedAt || 0) - (a.publishedAt || 0);
     });
-  }, [items, uiLocale, getLocale(), filterOptions]);
+  }, [items, contentLocale, filterOptions]);
 
   const savedCount = useMemo(() => items.filter((i) => i.saved).length, [items]);
 
@@ -362,7 +364,15 @@ export default function App() {
     // root already adds md:pl-24 / pb-24 so the nav never occludes content.
     return (
       <>
-        <LanguageSetup onDone={() => setNavTab("feed")} items={items} />
+        <LanguageSetup
+          onDone={() => setNavTab("feed")}
+          items={items}
+          contentLocale={contentLocale}
+          onContentLocaleChange={(code) => {
+            setContentLocaleState(code);
+            setContentLocale(code);
+          }}
+        />
         <AppNav active={navTab} onChange={(t) => setNavTab(t)} savedCount={savedCount} />
       </>
     );
@@ -472,14 +482,14 @@ export default function App() {
                 {navTab === "saved"
                   ? "No saved articles yet"
                   : localeGatedEmpty
-                  ? `No ${getLocale() === "dv" ? "Dhivehi" : "English"} articles available`
+                  ? `No ${contentLocale === "dv" ? "Dhivehi" : "English"} articles available`
                   : "No articles found matching filters"}
               </p>
               <p className="text-sm text-neutral-400 mt-1">
                 {navTab === "saved"
                   ? "Tap the bookmark on any story to save it here."
                   : localeGatedEmpty
-                  ? getLocale() === "dv"
+                  ? contentLocale === "dv"
                     ? "Switch the app language to English, or add a Dhivehi news source."
                     : "Switch the app language to Dhivehi, or add an English news source."
                   : "Try resetting your date, topic, or source filter settings."}

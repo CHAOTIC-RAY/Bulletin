@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { LocaleCode, getLocale, t } from "../lib/i18n";
+import { LocaleCode, getLocale, getContentLocale, setContentLocale, t } from "../lib/i18n";
 import TtsSettings from "./TtsSettings";
 import SourcesPanel from "./SourcesPanel";
 import BriefSettingsPanel from "./BriefSettingsPanel";
@@ -45,6 +45,10 @@ import { APP_VERSION } from "../lib/appVersion";
 interface Props {
   onDone: (uiLocale: LocaleCode, narrateLang: string) => void;
   items?: FeedItem[];
+  /** Current content locale (the real "Dhivehi mode" switch). App passes this
+   *  so the feed re-renders live; defaults to direct i18n for the setup screen. */
+  contentLocale?: "en" | "dv";
+  onContentLocaleChange?: (code: "en" | "dv") => void;
 }
 
 type SectionKey = "tts" | "language" | "appearance" | "sources" | "brief" | "weather" | "updates";
@@ -59,7 +63,25 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: "updates", label: "App Updates" },
 ];
 
-export default function LanguageSetup({ onDone, items = [] }: Props) {
+export default function LanguageSetup({
+  onDone,
+  items = [],
+  contentLocale: contentLocaleProp,
+  onContentLocaleChange,
+}: Props) {
+  // The "App Interface Language" toggle is the real Dhivehi/English mode switch.
+  // It drives the content locale (Thaana feed + RTL reader + Dhivehi TTS). The
+  // UI shell stays English by design. Persist immediately so the choice sticks
+  // across tab switches, and notify the parent for a live feed re-render.
+  const [localContent, setLocalContent] = useState<"en" | "dv">(
+    () => contentLocaleProp ?? getContentLocale()
+  );
+  const contentLocale = contentLocaleProp ?? localContent;
+  const setContent = (code: "en" | "dv") => {
+    setLocalContent(code);
+    setContentLocale(code); // persist to bulletin_content_locale
+    onContentLocaleChange?.(code); // live feed update if in-app
+  };
   const [uiLocale, setUiLocale] = useState<LocaleCode>(getLocale());
   const [narrateLang, setNarrateLang] = useState("en-US");
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -306,7 +328,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
               <div className="flex justify-between items-center text-xs gap-2">
                 <span className="text-neutral-500 font-medium">App Language</span>
                 <span className="font-serif font-black bg-neutral-950/5 dark:bg-white/5 border border-neutral-950/10 dark:border-white/10 px-2 py-0.5 text-neutral-950 dark:text-white truncate max-w-[55%]">
-                  {uiLocale === "dv" ? "ދިވެހި" : "English (LTR)"}
+                  {contentLocale === "dv" ? "ދިވެހި" : "English (LTR)"}
                 </span>
               </div>
 
@@ -454,7 +476,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="hidden sm:inline-block text-[10px] font-mono bg-neutral-950/5 dark:bg-white/5 border border-neutral-950/10 dark:border-white/10 px-2 py-0.5 font-black">
-                  {uiLocale === "dv" ? "ދިވެހި" : "ENGLISH"}
+                  {contentLocale === "dv" ? "ދިވެހި" : "ENGLISH"}
                 </span>
                 {chevron(expanded.language)}
               </div>
@@ -471,7 +493,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
                 </div>
                 <div className="rounded-none bg-[#f2eee3] dark:bg-[#131210] border-2 border-neutral-950 dark:border-neutral-700 overflow-hidden divide-y divide-neutral-950/10 dark:divide-white/10">
                   <button
-                    onClick={() => setUiLocale("en")}
+                    onClick={() => setContent("en")}
                     className="w-full p-4 flex items-center justify-between text-left hover:bg-neutral-950/5 dark:hover:bg-white/5 transition-colors"
                   >
                     <div className="flex items-center gap-3">
@@ -481,7 +503,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
                         <div className="text-xs text-neutral-500">Left-to-Right (LTR) Layout</div>
                       </div>
                     </div>
-                    {uiLocale === "en" ? (
+                    {contentLocale === "en" ? (
                       <div className="w-6 h-6 rounded-none border border-black/30 bg-amber-500 text-black flex items-center justify-center font-bold">
                         <Check className="w-4 h-4 stroke-[3]" />
                       </div>
@@ -490,7 +512,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
                     )}
                   </button>
                   <button
-                    onClick={() => setUiLocale("dv")}
+                    onClick={() => setContent("dv")}
                     className="w-full p-4 flex items-center justify-between text-left hover:bg-neutral-950/5 dark:hover:bg-white/5"
                   >
                     <div className="flex items-center gap-3">
@@ -500,7 +522,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
                         <div className="text-xs text-neutral-500">Right-to-Left (RTL / Dhivehi Content Layout)</div>
                       </div>
                     </div>
-                    {uiLocale === "dv" ? (
+                    {contentLocale === "dv" ? (
                       <div className="w-6 h-6 rounded-none border border-black/30 bg-amber-500 text-black flex items-center justify-center font-bold">
                         <Check className="w-4 h-4 stroke-[3]" />
                       </div>
