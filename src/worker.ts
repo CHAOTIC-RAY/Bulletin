@@ -85,8 +85,15 @@ async function handleApi(request: Request, env: any): Promise<Response> {
     if (!target) {
       return Response.json({ error: "URL is required" }, { status: 400 });
     }
+    // Allow forcing a fresh scrape (bypass the per-article cache) for debugging
+    // or when a source changes. Default behaviour uses the cache.
+    const noCache = url.searchParams.get("nocache") === "1";
+    if (noCache) {
+      try { (await import("./lib/feedEnrich")).clearArticleCache(); } catch { /* ignore */ }
+    }
+
     // Edge-cache enriched feeds so repeat loads (and the 300s window) return
-    // instantly instead of re-scraping every article via r.jina.ai.
+    // instantly instead of re-scraping every article.
     const cacheKey = new Request(url.toString(), request);
     try {
       const cache = (caches as any).default;
@@ -98,6 +105,7 @@ async function handleApi(request: Request, env: any): Promise<Response> {
       }
     } catch { /* cache unavailable — fall through to live */ }
 
+    const started = Date.now();
     try {
       const { fetchEnrichedFeed } = await import("./lib/feedEnrich");
       const feed = await fetchEnrichedFeed(decodeURIComponent(target));
@@ -108,6 +116,9 @@ async function handleApi(request: Request, env: any): Promise<Response> {
           "Content-Type": "application/json",
           "Cache-Control": "public, max-age=300",
           "Access-Control-Allow-Origin": "*",
+          // Transparency + speed signal so we can verify the non-AI path is fast.
+          "X-Feed-Time-Ms": String(Date.now() - started),
+          "X-Scrape-Backend": "readability-direct",
         },
       });
       try { await (caches as any).default.put(cacheKey, resp.clone()); } catch { /* ignore */ }

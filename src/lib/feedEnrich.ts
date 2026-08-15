@@ -20,6 +20,38 @@ import { cleanArticleHtml } from "./feedSanitize";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
+// ── Per-article scrape cache ────────────────────────────────────────────────
+// Each article URL is scraped at most once per TTL window. Eliminates the
+// "slow every time you open it" symptom and slashes repeated upstream calls
+// (and jina usage) to zero for repeat reads. In-memory (per Worker isolate);
+// swap ARTICLE_CACHE with a Cloudflare KV namespace for cross-instance persistence.
+interface CachedArticle {
+  imageUrl?: string;
+  images: string[];
+  content?: string;
+  expires: number;
+}
+const ARTICLE_CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6 hours
+const articleCache = new Map<string, CachedArticle>();
+
+function cacheGet(url: string): CachedArticle | undefined {
+  const hit = articleCache.get(url);
+  if (hit && hit.expires > Date.now()) return hit;
+  if (hit) articleCache.delete(url);
+  return undefined;
+}
+function cacheSet(url: string, val: Omit<CachedArticle, "expires">) {
+  articleCache.set(url, { ...val, expires: Date.now() + ARTICLE_CACHE_TTL_MS });
+  // Bound memory on long-lived instances.
+  if (articleCache.size > 500) {
+    const oldest = articleCache.keys().next().value;
+    if (oldest) articleCache.delete(oldest);
+  }
+}
+export function clearArticleCache() {
+  articleCache.clear();
+}
+
 export function isAdOrPromotional(title: string, summary: string = "", content: string = ""): boolean {
   const text = `${title} ${summary} ${content}`.toLowerCase();
 
@@ -270,10 +302,41 @@ async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
     throw new Error(`Skipping page scrape for bot-protected site: ${normalizedUrl}`);
   }
 
-  // PRIMARY: r.jina.ai reader API. It fetches the article server-side (no
-  // browser/anti-bot wall) and returns clean Markdown + embedded images, so it
-  // works inside the Cloudflare Worker runtime where a direct fetch would be
-  // bot-blocked. This is what recovers full text for TechCrunch/Ada/Hindu/etc.
+  const headers = {
+    "User-Agent": UA,
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+  };
+
+  // PRIMARY: direct fetch from the Worker. Cloudflare egress is fast and not
+  // bot-blocked the way a browser is, so for most sites this returns the full
+  // HTML in well under a second — no third-party render service needed.
+  try {
+    const res = await fetch(normalizedUrl, { headers, signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const html = await res.text();
+      if (html && html.length > 600) return html;
+    }
+  } catch {
+    /* fall through to proxies */
+  }
+
+  // SECONDARY: public CORS proxies (covers bot-protected Maldives sites etc.)
+  for (const mk of PROXIES) {
+    try {
+      const res = await fetch(mk(normalizedUrl), { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
+        const html = await res.text();
+        if (html && html.length > 600) return html;
+      }
+    } catch {
+      /* try next */
+    }
+  }
+
+  // LAST RESORT: r.jina.ai reader API. It does a server-side headless
+  // render+fetch (multi-second, rate-limited) so it is kept strictly as a final
+  // fallback for pages the direct fetch / proxies couldn't get.
   try {
     const jinaRes = await fetch(`https://r.jina.ai/${normalizedUrl}`, {
       headers: { "User-Agent": UA, Accept: "text/markdown" },
@@ -288,33 +351,7 @@ async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
       }
     }
   } catch {
-    /* fall through to direct fetch */
-  }
-
-  const headers = {
-    "User-Agent": UA,
-    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-  };
-  try {
-    const res = await fetch(normalizedUrl, { headers, signal: AbortSignal.timeout(7000) });
-    if (res.ok) {
-      const html = await res.text();
-      if (html && html.length > 600) return html;
-    }
-  } catch {
-    /* fall through to proxies */
-  }
-  for (const mk of PROXIES) {
-    try {
-      const res = await fetch(mk(normalizedUrl), { signal: AbortSignal.timeout(5000) });
-      if (res.ok) {
-        const html = await res.text();
-        if (html && html.length > 600) return html;
-      }
-    } catch {
-      /* try next */
-    }
+    /* all paths failed */
   }
   throw new Error(`Failed to fetch page: ${normalizedUrl}`);
 }
@@ -429,6 +466,11 @@ function collectArticleImages(articleHtml: string, baseUrl: string, hero?: strin
 async function scrapeArticle(
   url: string
 ): Promise<{ imageUrl?: string; images: string[]; content?: string }> {
+  // Serve from cache if we already scraped this URL recently (instant repeat reads).
+  const cached = cacheGet(url);
+  if (cached) {
+    return { imageUrl: cached.imageUrl, images: cached.images, content: cached.content };
+  }
   try {
     const html = await fetchPageHtmlWithProxies(url);
     const og = metaContent(html, "og:image") || metaContent(html, "twitter:image");
@@ -479,7 +521,9 @@ async function scrapeArticle(
     }
 
     const images = collectArticleImages(content || html, url, hero);
-    return { imageUrl: hero, images, content: content || undefined };
+    const result = { imageUrl: hero, images, content: content || undefined };
+    cacheSet(url, { imageUrl: result.imageUrl, images: result.images, content: result.content });
+    return result;
   } catch {
     return { images: [] };
   }
