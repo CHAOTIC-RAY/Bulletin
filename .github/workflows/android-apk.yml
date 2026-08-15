@@ -108,10 +108,21 @@ jobs:
           echo "APK ver  → $VITE_APK_VERSION"
           npm run build:apk-web
 
+      - name: Add Capacitor Android platform (if missing)
+        # The native android/ project is scaffolded by `cap add` (needs only
+        # Node/npm, not the Android SDK). Without it `cap sync` fails with
+        # "android platform has not been added yet". Guard so re-runs skip it.
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            echo "android/ already present — skipping cap add"
+          fi
+
       - name: Sync Capacitor Android project
         run: npx cap sync android
 
-      - name: Configure signing keystore
+      - name: Configure signing / build type
         id: signing
         env:
           BULLETIN_UPLOAD_KEYSTORE_BASE64: ${{ secrets.BULLETIN_UPLOAD_KEYSTORE_BASE64 }}
@@ -127,10 +138,15 @@ jobs:
             KEY_ALIAS="$BULLETIN_UPLOAD_KEY_ALIAS"
             KEY_PASS="$BULLETIN_UPLOAD_KEY_PASSWORD"
             SIGNING_SOURCE="upload-secret"
+            BUILD_TYPE="release"
           else
-            echo "BULLETIN_UPLOAD_KEYSTORE_BASE64 is not set in this repo's GitHub secrets."
-            echo "Add BULLETIN_UPLOAD_KEYSTORE_BASE64, BULLETIN_UPLOAD_STORE_PASSWORD, BULLETIN_UPLOAD_KEY_ALIAS, and BULLETIN_UPLOAD_KEY_PASSWORD to the repo secrets, then re-run."
-            exit 1
+            echo "::warning::BULLETIN_UPLOAD_KEYSTORE_BASE64 is not set — building a DEBUG-signed APK (installable for internal testing). Add the 4 BULLETIN_UPLOAD_* secrets for a production release."
+            STORE_FILE=""
+            STORE_PASS=""
+            KEY_ALIAS=""
+            KEY_PASS=""
+            SIGNING_SOURCE="android-debug-key"
+            BUILD_TYPE="debug"
           fi
 
           {
@@ -139,21 +155,27 @@ jobs:
             echo "BULLETIN_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
             echo "BULLETIN_UPLOAD_KEY_PASSWORD=$KEY_PASS"
             echo "SIGNING_SOURCE=$SIGNING_SOURCE"
+            echo "BUILD_TYPE=$BUILD_TYPE"
           } >> "$GITHUB_ENV"
 
-          KEYTOOL_OUT=$(keytool -list -v \
-            -keystore "android/app/$STORE_FILE" \
-            -storetype PKCS12 \
-            -alias "$KEY_ALIAS" \
-            -storepass "$STORE_PASS" 2>/dev/null) || KEYTOOL_OUT=""
-
-          SHA1=$(echo "$KEYTOOL_OUT" | sed -n 's/.*SHA1: //p' | head -n1 | tr -d '[:space:]')
-          SHA256=$(echo "$KEYTOOL_OUT" | sed -n 's/.*SHA256: //p' | head -n1 | tr -d '[:space:]')
+          if [ "$BUILD_TYPE" = "release" ]; then
+            KEYTOOL_OUT=$(keytool -list -v \
+              -keystore "android/app/$STORE_FILE" \
+              -storetype PKCS12 \
+              -alias "$KEY_ALIAS" \
+              -storepass "$STORE_PASS" 2>/dev/null) || KEYTOOL_OUT=""
+            SHA1=$(echo "$KEYTOOL_OUT" | sed -n 's/.*SHA1: //p' | head -n1 | tr -d '[:space:]')
+            SHA256=$(echo "$KEYTOOL_OUT" | sed -n 's/.*SHA256: //p' | head -n1 | tr -d '[:space:]')
+          else
+            SHA1="(debug auto-signed)"
+            SHA256="(debug auto-signed)"
+          fi
 
           echo "sha1=$SHA1" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
           echo "source=$SIGNING_SOURCE" >> "$GITHUB_OUTPUT"
           echo "alias=$KEY_ALIAS" >> "$GITHUB_OUTPUT"
+          echo "publish_release=$([ "$BUILD_TYPE" = "release" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
           mkdir -p artifacts
           {
@@ -176,23 +198,43 @@ jobs:
           gradle-version: 8.14.3
           validate-wrappers: false
 
-      - name: Assemble Release APK
+      - name: Wire upload keystore into Gradle (release only)
+        if: env.BUILD_TYPE == 'release'
+        run: |
+          set -euo pipefail
+          # Capacitor 8's default android/app/build.gradle already reads
+          # android/app/keystore.properties for the release signingConfig.
+          # Writing it from the secrets is the supported, non-fragile path.
+          cat > android/app/keystore.properties <<EOF
+          storeFile=$BULLETIN_UPLOAD_STORE_FILE
+          storePassword=$BULLETIN_UPLOAD_STORE_PASSWORD
+          keyAlias=$BULLETIN_UPLOAD_KEY_ALIAS
+          keyPassword=$BULLETIN_UPLOAD_KEY_PASSWORD
+          EOF
+          echo "wrote android/app/keystore.properties"
+
+      - name: Assemble APK
         working-directory: android
         run: |
           chmod +x gradlew || true
-          gradle assembleRelease --no-daemon --stacktrace \
-            -PBULLETIN_VERSION_CODE=$BULLETIN_VERSION_CODE \
-            -PBULLETIN_VERSION_NAME=$BULLETIN_VERSION_NAME \
-            -PBULLETIN_UPLOAD_STORE_FILE=$BULLETIN_UPLOAD_STORE_FILE \
-            -PBULLETIN_UPLOAD_STORE_PASSWORD=$BULLETIN_UPLOAD_STORE_PASSWORD \
-            -PBULLETIN_UPLOAD_KEY_ALIAS=$BULLETIN_UPLOAD_KEY_ALIAS \
-            -PBULLETIN_UPLOAD_KEY_PASSWORD=$BULLETIN_UPLOAD_KEY_PASSWORD
+          if [ "$BUILD_TYPE" = "release" ]; then
+            gradle assembleRelease --no-daemon --stacktrace \
+              -PBULLETIN_VERSION_CODE=$BULLETIN_VERSION_CODE \
+              -PBULLETIN_VERSION_NAME=$BULLETIN_VERSION_NAME
+          else
+            gradle assembleDebug --no-daemon --stacktrace \
+              -PBULLETIN_VERSION_CODE=$BULLETIN_VERSION_CODE \
+              -PBULLETIN_VERSION_NAME=$BULLETIN_VERSION_NAME
+          fi
 
       - name: Locate & rename APK
         id: apk
         run: |
           set -euo pipefail
-          RAW=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          RAW=$(find android/app/build/outputs/apk -name "*.apk" -path "*${{ env.BUILD_TYPE }}*" | head -n 1)
+          if [ -z "$RAW" ]; then
+            RAW=$(find android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          fi
           test -n "$RAW"
           OUT="artifacts/Bulletin-${BULLETIN_VERSION_NAME}-${GITHUB_SHA::7}.apk"
           mkdir -p artifacts
@@ -273,9 +315,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
-        if: >
-          github.event_name == 'push' ||
-          (github.event_name == 'workflow_dispatch' && (github.event.inputs.publish_release == 'true' || github.event.inputs.publish_release == true))
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          env.BUILD_TYPE == 'release'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-v${{ env.BULLETIN_VERSION_NAME }}
