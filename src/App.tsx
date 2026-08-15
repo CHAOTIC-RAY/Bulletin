@@ -352,12 +352,18 @@ export default function App() {
     return <LoadingPile label={t("nav.loading")} />;
   }
 
+  // Settings is a self-contained, fully scrollable screen. Render it OUTSIDE the
+  // clipping app shell (which uses overflow-hidden for the immersive swipe feed) so
+  // its content can scroll on short viewports — in both English and Dhivehi modes.
+  if (navTab === "settings") {
+    return <LanguageSetup onDone={() => setNavTab("feed")} items={items} />;
+  }
+
   const isImmersive = navTab === "feed";
 
   return (
     <div className={`h-[100dvh] w-full overflow-hidden transition-colors duration-500 ${isImmersive ? 'bg-neutral-950 text-white' : 'bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-white'}`}>
-      
-      {navTab !== "settings" && (
+
       <>
       {/* Top Header Navigation */}
       <div className={`absolute top-0 left-0 right-0 px-4 pt-6 pb-4 transition-all duration-300 pointer-events-none ${isImmersive ? 'z-50' : 'z-40'}`}>
@@ -386,7 +392,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      </>)}
+      </>
 
 
       <div className={`h-full w-full ${navTab === "feed" || navTab === "brief" ? "pb-20 md:pb-0 md:pl-24" : "pb-20 md:pb-0 md:pl-24"}`}>
@@ -414,9 +420,7 @@ export default function App() {
             </button>
           </div>
         )}
-        {navTab === "settings" ? (
-          <LanguageSetup onDone={() => setNavTab("feed")} items={items} />
-        ) : visibleItems.length ? (
+        {visibleItems.length ? (
           isImmersive ? (
             <BulletinFeedScroll
               items={visibleItems}
