@@ -5,7 +5,7 @@
 //  - On a new service worker installing, skipWaiting + notify clients; the app
 //    listens for the message and reloads automatically once the new SW activates.
 
-const CACHE = "bulletin-v1";
+const CACHE = "bulletin-v2";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/logo.svg"];
 
 self.addEventListener("install", (event) => {
