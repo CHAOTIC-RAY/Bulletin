@@ -379,14 +379,21 @@ export default function App() {
         <div className="max-w-5xl mx-auto flex items-center justify-between pointer-events-auto gap-3">
           
           <div className="flex items-center gap-3 min-w-0">
-            <svg
-              viewBox="0 0 194.16 232.77"
+            <span
               role="img"
               aria-label="Bulletin"
-              className={`w-8 h-9 object-contain shrink-0 ${isImmersive ? "text-white drop-shadow-md" : "text-ink dark:text-white"}`}
-            >
-              <path fill="currentColor" d="M194.16,54.97l-6.1,32.94-27.9,24.53,33.82,28.24.03,61.02-33.94,31-141.93.06,36.14-31.52-54.28-.27V.32s130.88-.14,130.88-.14l-.02,31.91-96.06.02.13,141.1L173.69,55.24l-33.37-.25.34-54.99,53.5,54.97ZM159.38,200.81l-.08-87.68-103.43,87.66,103.51.03Z" />
-            </svg>
+              className={`shrink-0 w-8 h-9 ${isImmersive ? "bg-white" : "bg-ink dark:bg-white"}`}
+              style={{
+                WebkitMaskImage: "url(/logo.svg)",
+                maskImage: "url(/logo.svg)",
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+                WebkitMaskSize: "contain",
+                maskSize: "contain",
+                WebkitMaskPosition: "center",
+                maskPosition: "center",
+              }}
+            />
             <span className={`hidden sm:inline font-extrabold tracking-tight text-xl truncate ${isImmersive ? 'text-white drop-shadow-md' : 'text-ink dark:text-white'}`}>{t("app.name")}</span>
           </div>
 

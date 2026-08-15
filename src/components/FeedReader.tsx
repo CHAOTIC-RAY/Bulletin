@@ -18,10 +18,16 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
   const [subtitle, setSubtitle] = useState("");
 
   useEffect(() => {
+    // Close on Escape for desktop popup ergonomics.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
     return () => {
+      window.removeEventListener("keydown", onKey);
       ttsRef.current?.stop();
     };
-  }, []);
+  }, [onClose]);
 
   if (!item) return null;
   const contentLocale = getContentLocale();
@@ -67,49 +73,99 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
     setPlaying(true);
   };
 
+  const publishedLabel = item.publishedAt
+    ? new Date(item.publishedAt).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : null;
+
   return createPortal(
-    <div dir={isRtl ? "rtl" : "ltr"} className={`fixed inset-0 z-[9999] bg-neutral-50 text-neutral-900 flex flex-col dark:bg-neutral-950 dark:text-white ${isRtl ? "font-thaana" : ""}`} style={{ height: "100dvh" }}>
-      <div className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10">
-        <button onClick={onClose} className="px-3 py-1.5 rounded-none border-2 border-neutral-950 dark:border-neutral-200 bg-black/5 dark:bg-white/10 text-xs font-bold">{t("reader.back")}</button>
-        <span className="text-[10px] font-bold uppercase tracking-widest truncate max-w-[50%]">{item.subscriptionTitle}</span>
-        <div className="flex gap-2">
-          <button onClick={toggleListen} className="px-3 py-1.5 rounded-none border-2 border-neutral-950 dark:border-neutral-200 bg-amber-500 text-black text-xs font-bold">
+    <div
+      dir={isRtl ? "rtl" : "ltr"}
+      className={`fixed inset-0 z-[9999] flex md:items-center md:justify-center ${isRtl ? "font-thaana" : ""}`}
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* Backdrop — dims the app behind the popup (desktop). On mobile the sheet
+          is full-bleed so the backdrop just reads as a solid scrim. */}
+      <div
+        className="absolute inset-0 bg-black/70 md:bg-black/60 animate-fade-in"
+        onClick={onClose}
+        aria-hidden
+      />
+
+      {/* Sheet: fullscreen on mobile, centered popup on desktop. */}
+      <div
+        className="relative w-full h-full md:h-auto md:max-h-[92vh] md:max-w-3xl md:my-auto bg-paper dark:bg-surface-card md:border-2 md:border-ink md:shadow-[var(--shadow-hard)] flex flex-col overflow-hidden"
+      >
+        {/* Top bar */}
+        <div className="flex items-center justify-between gap-3 p-3 sm:p-4 border-b-2 border-ink/15 dark:border-white/20 bg-paper dark:bg-surface-card shrink-0">
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-none border-2 border-ink/30 dark:border-white/30 bg-paper dark:bg-black/20 text-xs font-bold text-ink dark:text-white hover:bg-amber/15 dark:hover:bg-white/10"
+          >
+            {t("reader.back")}
+          </button>
+          <span className="text-[10px] font-bold uppercase tracking-widest truncate max-w-[50%] text-ink-soft dark:text-neutral-400">
+            {item.subscriptionTitle}
+          </span>
+          <button
+            onClick={toggleListen}
+            className="px-3 py-1.5 rounded-none border-2 border-ink dark:border-neutral-200 bg-amber text-ink text-xs font-bold hover:bg-amber-deep shrink-0"
+          >
             {playing ? `⏸ ${t("reader.stop")}` : `▶ ${t("reader.listen")}`}
           </button>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto p-5 max-w-2xl mx-auto w-full">
-        <h1 dir={dir} className={`text-2xl font-bold leading-tight mb-4 ${dir === "rtl" ? "font-thaana-title text-right" : ""}`}>{displayHeadline}</h1>
+        {/* Scroll body */}
+        <div className="flex-1 overflow-y-auto">
+          <article className="max-w-2xl mx-auto px-5 py-6 sm:py-8">
+            {/* Byline */}
+            <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-widest text-amber-800 dark:text-amber-400 mb-3">
+              <span>{item.subscriptionTitle}</span>
+              {publishedLabel && <span className="text-ink-soft dark:text-neutral-500">· {publishedLabel}</span>}
+            </div>
 
-        {item.imageUrl && (
-          <img src={item.imageUrl} alt="" referrerPolicy="no-referrer" className="w-full rounded-none border-2 border-neutral-950 dark:border-neutral-700 mb-4 object-cover" />
-        )}
+            <h1
+              dir={dir}
+              className={`font-serif font-black text-3xl sm:text-4xl leading-tight mb-5 text-ink dark:text-white ${dir === "rtl" ? "font-thaana-title text-right" : ""}`}
+            >
+              {displayHeadline}
+            </h1>
 
-        {item.content ? (
-          <div
-            dir={dir}
-            className={`prose-reader text-lg sm:text-xl md:text-2xl leading-relaxed ${dir === "rtl" ? "font-thaana text-right" : ""}`}
-            dangerouslySetInnerHTML={{ __html: sanitizeAndCleanHtml(item.content) }}
-          />
-        ) : (
-          <div
-            dir={textDirection(item.summary || "")}
-            className={`prose-reader text-lg sm:text-xl md:text-2xl leading-relaxed ${textDirection(item.summary || "") === "rtl" ? "font-thaana text-right" : ""}`}
-            dangerouslySetInnerHTML={{ __html: sanitizeAndCleanHtml(item.summary || "") }}
-          />
-        )}
+            {item.imageUrl && (
+              <img
+                src={item.imageUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="w-full h-56 sm:h-72 object-cover border-2 border-ink dark:border-white/20 mb-6 grayscale contrast-110"
+              />
+            )}
 
-        <a href={item.link} target="_blank" rel="noopener noreferrer" className="mt-6 inline-block text-amber-600 dark:text-amber-400 underline font-bold">
-          {t("reader.open")} →
-        </a>
-      </div>
-
-      {playing && (
-        <div className="p-4 border-t border-black/10 dark:border-white/10 text-center text-sm italic bg-amber-50 dark:bg-amber-950/30">
-          {subtitle || "…"}
+            {item.content ? (
+              <div
+                dir={dir}
+                className={`prose-reader magazine-body ${dir === "rtl" ? "font-thaana text-right" : ""}`}
+                dangerouslySetInnerHTML={{ __html: sanitizeAndCleanHtml(item.content) }}
+              />
+            ) : (
+              <div
+                dir={textDirection(item.summary || "")}
+                className={`prose-reader magazine-body ${textDirection(item.summary || "") === "rtl" ? "font-thaana text-right" : ""}`}
+                dangerouslySetInnerHTML={{ __html: sanitizeAndCleanHtml(item.summary || "") }}
+              />
+            )}
+          </article>
         </div>
-      )}
+
+        {playing && (
+          <div className="p-4 border-t-2 border-ink/15 dark:border-white/20 text-center text-sm italic bg-amber/10 dark:bg-amber-950/30 text-ink dark:text-white shrink-0">
+            {subtitle || "…"}
+          </div>
+        )}
+      </div>
     </div>,
     document.body
   );

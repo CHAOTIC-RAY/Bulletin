@@ -7,7 +7,7 @@ import { textDirection } from "../lib/textDirection";
 import { getContentLocale } from "../lib/i18n";
 import { getDisplayHeadline, getDisplayDetail } from "../lib/feedSanitize";
 import WeatherOverview from "./WeatherOverview";
-import { Bookmark, BookmarkCheck, ArrowUpRight, Newspaper, Globe, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { Bookmark, BookmarkCheck, BookOpen, Newspaper, Globe, Sparkles, Volume2, VolumeX } from "lucide-react";
 
 interface Props {
   items: FeedItem[];
@@ -332,15 +332,13 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
         </div>
 
         <div className="flex items-center justify-between border-t border-dashed border-neutral-950/20 dark:border-white/10 pt-4 mt-6">
-          {art.item && art.item.link && (
-            <a
-              href={art.item.link}
-              target="_blank"
-              rel="noopener noreferrer"
+          {art.item && (
+            <button
+              onClick={() => onOpen(art.item)}
               className="inline-flex items-center gap-1 text-[11px] font-mono font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400 hover:underline"
             >
-              Read Original <ArrowUpRight className="w-3.5 h-3.5" />
-            </a>
+              Read full article <BookOpen className="w-3.5 h-3.5" />
+            </button>
           )}
           <div className="flex items-center gap-2">
             {art.item && (
@@ -414,15 +412,13 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
           </p>
 
           <div className="flex items-center justify-between border-t border-white/20 pt-3 mt-4">
-            {art.item && art.item.link && (
-              <a
-                href={art.item.link}
-                target="_blank"
-                rel="noopener noreferrer"
+            {art.item && (
+              <button
+                onClick={() => onOpen(art.item)}
                 className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 hover:underline"
               >
-                Full Link <ArrowUpRight className="w-3 h-3" />
-              </a>
+                Read full article <BookOpen className="w-3 h-3" />
+              </button>
             )}
             <div className="flex items-center gap-2">
               {art.item && (
@@ -496,15 +492,13 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
         </div>
 
         <div className="flex items-center justify-between border-t border-dashed border-neutral-950/20 dark:border-white/10 pt-4 mt-4">
-          {art.item && art.item.link && (
-            <a
-              href={art.item.link}
-              target="_blank"
-              rel="noopener noreferrer"
+          {art.item && (
+            <button
+              onClick={() => onOpen(art.item)}
               className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400 hover:underline"
             >
-              Full Analysis <ArrowUpRight className="w-3 h-3" />
-            </a>
+              Read full article <BookOpen className="w-3 h-3" />
+            </button>
           )}
           <div className="flex items-center gap-2">
             {art.item && (
@@ -709,15 +703,13 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
         </div>
 
         <div className="flex items-center justify-between border-t border-dashed border-neutral-950/20 dark:border-white/10 pt-3 mt-3">
-          {art.item && art.item.link && (
-            <a
-              href={art.item.link}
-              target="_blank"
-              rel="noopener noreferrer"
+          {art.item && (
+            <button
+              onClick={() => onOpen(art.item)}
               className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400 hover:underline"
             >
-              Read Article <ArrowUpRight className="w-3 h-3" />
-            </a>
+              Read full article <BookOpen className="w-3 h-3" />
+            </button>
           )}
           <div className="flex items-center gap-2">
             {art.item && (
