@@ -1,4 +1,5 @@
 import React from "react";
+import { Newspaper, BookOpen, Bookmark, Settings } from "lucide-react";
 import { cn } from "../lib/cn";
 
 export type NavTab = "feed" | "brief" | "saved" | "settings";
@@ -10,10 +11,10 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { id: "feed", label: "Feed", icon: <NewspaperIcon /> },
-  { id: "brief", label: "Daily Paper", icon: <BriefIcon /> },
-  { id: "saved", label: "Saved", icon: <BookmarkIcon /> },
-  { id: "settings", label: "Settings", icon: <GearIcon /> },
+  { id: "feed", label: "Feed", icon: <Newspaper className="w-[22px] h-[22px]" /> },
+  { id: "brief", label: "Daily Paper", icon: <BookOpen className="w-[22px] h-[22px]" /> },
+  { id: "saved", label: "Saved", icon: <Bookmark className="w-[22px] h-[22px]" /> },
+  { id: "settings", label: "Settings", icon: <Settings className="w-[22px] h-[22px]" /> },
 ];
 
 /** Mobile bottom tab bar + desktop left sidebar. Sharp, token-styled, active=amber. */
@@ -92,39 +93,5 @@ export function AppNav({
         })}
       </nav>
     </>
-  );
-}
-
-/* --- inline icons (no extra dep; lucide already a dep but keep local for control) --- */
-function NewspaperIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
-      <path d="M4 5h13a2 2 0 0 1 2 2v11a2 2 0 0 0 2-2V7" />
-      <path d="M4 5v12a2 2 0 0 0 2 2h13" />
-      <path d="M7 9h7M7 13h7" />
-    </svg>
-  );
-}
-function BriefIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
-      <path d="M5 4h14v16H5z" />
-      <path d="M8 8h8M8 12h8M8 16h5" />
-    </svg>
-  );
-}
-function BookmarkIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
-      <path d="M7 4h10v16l-5-4-5 4z" />
-    </svg>
-  );
-}
-function GearIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
-    </svg>
   );
 }

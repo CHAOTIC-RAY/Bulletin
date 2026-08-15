@@ -356,7 +356,16 @@ export default function App() {
   // clipping app shell (which uses overflow-hidden for the immersive swipe feed) so
   // its content can scroll on short viewports — in both English and Dhivehi modes.
   if (navTab === "settings") {
-    return <LanguageSetup onDone={() => setNavTab("feed")} items={items} />;
+    // Settings is a self-contained, fully scrollable screen, but it still needs
+    // the primary nav so users can leave it. Render it alongside AppNav (which
+    // provides the mobile bottom tab bar + desktop sidebar). LanguageSetup's
+    // root already adds md:pl-24 / pb-24 so the nav never occludes content.
+    return (
+      <>
+        <LanguageSetup onDone={() => setNavTab("feed")} items={items} />
+        <AppNav active={navTab} onChange={(t) => setNavTab(t)} savedCount={savedCount} />
+      </>
+    );
   }
 
   const isImmersive = navTab === "feed";

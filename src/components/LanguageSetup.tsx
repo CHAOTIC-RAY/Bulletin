@@ -226,7 +226,7 @@ export default function LanguageSetup({ onDone, items = [] }: Props) {
   return (
     <div
       dir={isRtl ? "rtl" : "ltr"}
-      className="h-[100dvh] w-full overflow-y-auto bg-[#f5f1e6] dark:bg-[#12110e] text-neutral-900 dark:text-neutral-100 flex flex-col font-sans relative scrollbar-none"
+      className="h-[100dvh] w-full overflow-y-auto bg-[#f5f1e6] dark:bg-[#12110e] text-neutral-900 dark:text-neutral-100 flex flex-col font-sans relative scrollbar-none md:pl-24 pb-24 md:pb-0"
     >
       {/* Newspaper Grain Texture */}
       <div className="fixed inset-0 bg-noise pointer-events-none opacity-[0.03] dark:opacity-[0.02] z-0" />
