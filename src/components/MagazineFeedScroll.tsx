@@ -265,6 +265,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
     return (
       <article
         key={art.id + index}
+        onClick={() => art.item && onOpen(art.item)}
         className={`bg-[#faf6ec] dark:bg-[#1a1815] border-2 border-neutral-950 dark:border-neutral-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] p-5 sm:p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-0.5 rounded-none ${colSpan} ${rowSpan}`}
       >
         <div className="space-y-4">
@@ -281,7 +282,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             <div className="lg:col-span-7 space-y-3">
-              <button onClick={() => art.item && onOpen(art.item)} className="text-left w-full group">
+              <button onClick={(e) => { e.stopPropagation(); art.item && onOpen(art.item); }} className="text-left w-full group">
                 <h2
                   dir={dir}
                   className={`font-serif font-black leading-tight text-neutral-950 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors text-xl sm:text-2xl md:text-3xl ${
@@ -334,16 +335,16 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
         <div className="flex items-center justify-between border-t border-dashed border-neutral-950/20 dark:border-white/10 pt-4 mt-6">
           {art.item && (
             <button
-              onClick={() => onOpen(art.item)}
+              onClick={(e) => { e.stopPropagation(); onOpen(art.item); }}
               className="inline-flex items-center gap-1 text-[11px] font-mono font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400 hover:underline"
             >
-              Read full article <BookOpen className="w-3.5 h-3.5" />
+              {getContentLocale() === "dv" ? <span className="font-thaana" dir="rtl">ފުރިހަމަ ލެއިފާ</span> : "Read full article"} <BookOpen className="w-3.5 h-3.5" />
             </button>
           )}
           <div className="flex items-center gap-2">
             {art.item && (
               <button
-                onClick={() => onSave(art.item)}
+                onClick={(e) => { e.stopPropagation(); onSave(art.item); }}
                 className="text-neutral-500 hover:text-amber-800 dark:hover:text-amber-400 transition-colors p-1.5 border border-neutral-950/10 dark:border-white/10 hover:border-neutral-950 shrink-0"
                 title="Bookmark"
               >
@@ -367,6 +368,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
     return (
       <article
         key={art.id + index}
+        onClick={() => art.item && onOpen(art.item)}
         className={`relative bg-neutral-900 border-2 border-neutral-950 dark:border-neutral-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] flex flex-col justify-end overflow-hidden group min-h-[300px] sm:min-h-[340px] md:min-h-[380px] transition-all duration-300 hover:-translate-y-0.5 rounded-none ${colSpan} ${rowSpan}`}
       >
         {cover ? (
@@ -391,7 +393,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent z-10" />
 
         <div className="relative z-20 p-5 space-y-3">
-          <button onClick={() => art.item && onOpen(art.item)} className="text-left w-full group">
+          <button onClick={(e) => { e.stopPropagation(); art.item && onOpen(art.item); }} className="text-left w-full group">
             <h2
               dir={dir}
               className={`font-serif font-black text-white group-hover:text-amber-400 transition-colors text-lg sm:text-xl md:text-2xl leading-tight ${
@@ -414,16 +416,16 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
           <div className="flex items-center justify-between border-t border-white/20 pt-3 mt-4">
             {art.item && (
               <button
-                onClick={() => onOpen(art.item)}
+                onClick={(e) => { e.stopPropagation(); onOpen(art.item); }}
                 className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 hover:underline"
               >
-                Read full article <BookOpen className="w-3 h-3" />
+                {getContentLocale() === "dv" ? <span className="font-thaana" dir="rtl">ފުރިހަމަ ލެއިފާ</span> : "Read full article"} <BookOpen className="w-3 h-3" />
               </button>
             )}
             <div className="flex items-center gap-2">
               {art.item && (
                 <button
-                  onClick={() => onSave(art.item)}
+                  onClick={(e) => { e.stopPropagation(); onSave(art.item); }}
                   className="text-neutral-400 hover:text-amber-400 transition-colors p-1 bg-black/40 border border-white/10 shrink-0"
                   title="Bookmark"
                 >
@@ -447,6 +449,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
     return (
       <article
         key={art.id + index}
+        onClick={() => art.item && onOpen(art.item)}
         className={`bg-[#faf6ec] dark:bg-[#1a1815] border-2 border-neutral-950 dark:border-neutral-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] p-5 sm:p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-0.5 rounded-none ${colSpan} ${rowSpan}`}
       >
         <div className="space-y-3">
@@ -459,7 +462,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
             </span>
           </div>
 
-          <button onClick={() => art.item && onOpen(art.item)} className="text-left w-full group">
+          <button onClick={(e) => { e.stopPropagation(); art.item && onOpen(art.item); }} className="text-left w-full group">
             <h2
               dir={dir}
               className={`font-serif font-black leading-snug text-neutral-950 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors text-lg sm:text-xl ${
@@ -494,16 +497,16 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
         <div className="flex items-center justify-between border-t border-dashed border-neutral-950/20 dark:border-white/10 pt-4 mt-4">
           {art.item && (
             <button
-              onClick={() => onOpen(art.item)}
+              onClick={(e) => { e.stopPropagation(); onOpen(art.item); }}
               className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400 hover:underline"
             >
-              Read full article <BookOpen className="w-3 h-3" />
+              {getContentLocale() === "dv" ? <span className="font-thaana" dir="rtl">ފުރިހަމަ ލެއިފާ</span> : "Read full article"} <BookOpen className="w-3 h-3" />
             </button>
           )}
           <div className="flex items-center gap-2">
             {art.item && (
               <button
-                onClick={() => onSave(art.item)}
+                onClick={(e) => { e.stopPropagation(); onSave(art.item); }}
                 className="text-neutral-500 hover:text-amber-800 dark:hover:text-amber-400 transition-colors p-1.5 border border-neutral-950/10 dark:border-white/10 hover:border-neutral-950 shrink-0"
                 title="Bookmark"
               >
@@ -526,6 +529,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
     return (
       <article
         key={art.id + index}
+        onClick={() => art.item && onOpen(art.item)}
         className={`bg-[#fdfaf2] dark:bg-[#1f1d19] border-2 border-neutral-950 dark:border-neutral-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] p-5 sm:p-6 flex flex-col justify-between transition-all duration-300 hover:-translate-y-0.5 rounded-none ${colSpan} ${rowSpan}`}
       >
         <div className="space-y-4">
@@ -535,7 +539,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
             </span>
           </div>
 
-          <button onClick={() => art.item && onOpen(art.item)} className="text-center w-full group block">
+          <button onClick={(e) => { e.stopPropagation(); art.item && onOpen(art.item); }} className="text-center w-full group block">
             <h2
               dir={dir}
               className={`font-serif italic text-base sm:text-lg md:text-xl font-bold leading-relaxed text-neutral-950 dark:text-neutral-100 group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors ${
@@ -565,7 +569,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
           <div className="flex items-center gap-2">
             {art.item && (
               <button
-                onClick={() => onSave(art.item)}
+                onClick={(e) => { e.stopPropagation(); onSave(art.item); }}
                 className="text-neutral-500 hover:text-amber-800 dark:hover:text-amber-400 transition-colors p-1.5 border border-neutral-950/10 dark:border-white/10 hover:border-neutral-950 shrink-0"
                 title="Bookmark"
               >
@@ -588,6 +592,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
     return (
       <article
         key={art.id + index}
+        onClick={() => art.item && onOpen(art.item)}
         className={`bg-neutral-950 dark:bg-[#1a150c] text-white border-2 border-neutral-950 dark:border-amber-500/20 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(245,158,11,0.15)] p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-0.5 rounded-none ${colSpan} ${rowSpan}`}
       >
         <div className="space-y-3">
@@ -600,7 +605,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
             </span>
           </div>
 
-          <button onClick={() => art.item && onOpen(art.item)} className="text-left w-full group block">
+          <button onClick={(e) => { e.stopPropagation(); art.item && onOpen(art.item); }} className="text-left w-full group block">
             <h2
               dir={dir}
               className={`font-sans font-extrabold tracking-tight leading-snug text-white group-hover:text-amber-400 transition-colors text-sm sm:text-base ${
@@ -628,7 +633,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
           <div className="flex items-center gap-2">
             {art.item && (
               <button
-                onClick={() => onSave(art.item)}
+                onClick={(e) => { e.stopPropagation(); onSave(art.item); }}
                 className="text-neutral-400 hover:text-amber-400 transition-colors p-1 bg-white/5 border border-white/10 shrink-0"
                 title="Bookmark"
               >
@@ -652,6 +657,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
     return (
       <article
         key={art.id + index}
+        onClick={() => art.item && onOpen(art.item)}
         className={`bg-[#faf6ec] dark:bg-[#1a1815] border-2 border-neutral-950 dark:border-neutral-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.95)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.15)] p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-0.5 rounded-none ${colSpan} ${rowSpan}`}
       >
         <div className="space-y-3">
@@ -681,7 +687,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
             </span>
           </div>
 
-          <button onClick={() => art.item && onOpen(art.item)} className="text-left w-full group block">
+          <button onClick={(e) => { e.stopPropagation(); art.item && onOpen(art.item); }} className="text-left w-full group block">
             <h2
               dir={dir}
               className={`font-serif font-bold leading-snug text-neutral-950 dark:text-white group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors text-base ${
@@ -705,16 +711,16 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
         <div className="flex items-center justify-between border-t border-dashed border-neutral-950/20 dark:border-white/10 pt-3 mt-3">
           {art.item && (
             <button
-              onClick={() => onOpen(art.item)}
+              onClick={(e) => { e.stopPropagation(); onOpen(art.item); }}
               className="inline-flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400 hover:underline"
             >
-              Read full article <BookOpen className="w-3 h-3" />
+              {getContentLocale() === "dv" ? <span className="font-thaana" dir="rtl">ފުރިހަމަ ލެއިފާ</span> : "Read full article"} <BookOpen className="w-3 h-3" />
             </button>
           )}
           <div className="flex items-center gap-2">
             {art.item && (
               <button
-                onClick={() => onSave(art.item)}
+                onClick={(e) => { e.stopPropagation(); onSave(art.item); }}
                 className="text-neutral-500 hover:text-amber-800 dark:hover:text-amber-400 transition-colors p-1.5 border border-neutral-950/10 dark:border-white/10 hover:border-neutral-950 shrink-0"
                 title="Bookmark"
               >
