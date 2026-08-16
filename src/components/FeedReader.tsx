@@ -36,7 +36,7 @@ export default function FeedReader({ item, narrateLang, onClose }: Props) {
   // feeds store for SEO. This is what was leaving the headline in English.
   const displayHeadline =
     contentLocale === "dv" ? getDisplayHeadline(item.title, item.content || item.summary || "") : item.title;
-  const dir = textDirection(displayHeadline);
+  const dir = contentLocale === "dv" ? "rtl" : textDirection(displayHeadline);
 
   // The reader container goes RTL + Thaana font ONLY for Dhivehi articles,
   // never for the English UI shell.

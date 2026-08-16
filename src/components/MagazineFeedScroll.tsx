@@ -259,7 +259,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
   };
 
   const renderHeroCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
     const cover = art.item?.imageUrl;
 
     return (
@@ -362,7 +362,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
   };
 
   const renderVisualCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
     const cover = art.item?.imageUrl;
 
     return (
@@ -444,7 +444,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
   };
 
   const renderDoubleColumnCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
 
     return (
       <article
@@ -524,7 +524,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
   };
 
   const renderQuoteCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
 
     return (
       <article
@@ -587,7 +587,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
   };
 
   const renderIntelCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
 
     return (
       <article
@@ -651,7 +651,7 @@ export default function MagazineFeedScroll({ items, onOpen, onSave, narrateLang 
   };
 
   const renderStandardCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
     const cover = art.item?.imageUrl;
 
     return (

@@ -221,7 +221,7 @@ export default function BulletinFeedScroll({
           getContentLocale() === "dv"
             ? getDisplayHeadline(item.title, item.content || item.summary || "")
             : item.title;
-        const dir = textDirection(displayHeadline);
+        const dir = getContentLocale() === "dv" ? "rtl" : textDirection(displayHeadline);
         const isExpanded = expanded === index;
         const inlineImgs = extractImagesFromHtml(item.content || item.summary || "");
         const allImgsSet = new Set<string>();

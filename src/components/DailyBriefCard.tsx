@@ -285,7 +285,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
   };
 
   const renderHeroCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
     const cover = art.originalItem?.imageUrl;
 
     return (
@@ -364,7 +364,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
   };
 
   const renderVisualCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
     const cover = art.originalItem?.imageUrl;
 
     return (
@@ -430,7 +430,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
   };
 
   const renderDoubleColumnCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
 
     return (
       <article
@@ -491,7 +491,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
   };
 
   const renderQuoteCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
 
     return (
       <article
@@ -530,7 +530,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
   };
 
   const renderIntelCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
 
     return (
       <article
@@ -573,7 +573,7 @@ export default function DailyBriefCard({ items, narrateLang, isOpen, onClose, sh
   };
 
   const renderStandardCard = (art: any, index: number, colSpan: string, rowSpan: string) => {
-    const dir = textDirection(art.headline);
+    const dir = getContentLocale() === "dv" ? "rtl" : textDirection(art.headline);
     const cover = art.originalItem?.imageUrl;
 
     return (

@@ -327,7 +327,7 @@ export default function LanguageSetup({
 
               <div className="flex justify-between items-center text-xs gap-2">
                 <span className="text-neutral-500 font-medium">App Language</span>
-                <span className="font-serif font-black bg-neutral-950/5 dark:bg-white/5 border border-neutral-950/10 dark:border-white/10 px-2 py-0.5 text-neutral-950 dark:text-white truncate max-w-[55%]">
+                <span className={`font-serif font-black bg-neutral-950/5 dark:bg-white/5 border border-neutral-950/10 dark:border-white/10 px-2 py-0.5 text-neutral-950 dark:text-white truncate max-w-[55%] ${contentLocale === "dv" ? "font-thaana" : ""}`}>
                   {contentLocale === "dv" ? "ދިވެހި" : "English (LTR)"}
                 </span>
               </div>
