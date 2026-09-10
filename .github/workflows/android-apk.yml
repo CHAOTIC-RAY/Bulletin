@@ -76,13 +76,19 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2
 
       - name: Clean install dependencies
         run: |
-          rm -rf node_modules package-lock.json
-          npm install --no-audit --no-fund --omit=optional
-          npm install @rollup/rollup-linux-x64-gnu --no-save --no-audit --no-fund || true
+          rm -rf node_modules package-lock.json bun.lockb
+          bun install --frozen-lockfile --ignore-scripts
+          # @rollup/rollup-linux-x64-gnu is needed by vite-plugin-compression2 on
+          # GitHub runners without a prebuilt bun-native addon; install explicitly.
+          bun add --dev @rollup/rollup-linux-x64-gnu || true
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -106,7 +112,7 @@ jobs:
           echo "API base → $VITE_API_BASE_URL"
           echo "Channel  → $VITE_APP_CHANNEL"
           echo "APK ver  → $VITE_APK_VERSION"
-          npm run build:apk-web
+          bun run build:apk-web
 
       - name: Add Capacitor Android platform (if missing)
         # The native android/ project is scaffolded by `cap add` (needs only
@@ -316,8 +322,11 @@ jobs:
 
       - name: Publish GitHub Release
         if: >-
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-          env.BUILD_TYPE == 'release'
+          github.event_name == 'push' ||
+          (github.event_name == 'workflow_dispatch' &&
+            (github.event.inputs.publish_release == 'true' ||
+             github.event.inputs.publish_release == 'True' ||
+             github.event.inputs.publish_release == true))
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-v${{ env.BULLETIN_VERSION_NAME }}
@@ -328,6 +337,6 @@ jobs:
             artifacts/APK_SIGNATURE.txt
           fail_on_unmatched_files: true
           generate_release_notes: false
-          draft: false
+          draft: ${{ env.BUILD_TYPE == 'debug' }}
           prerelease: ${{ github.ref_name == 'beta' }}
           body: ${{ steps.notes.outputs.notes }}
