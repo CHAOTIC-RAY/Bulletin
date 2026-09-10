@@ -248,7 +248,24 @@ jobs:
           echo "path=$OUT" >> "$GITHUB_OUTPUT"
           echo "name=$(basename "$OUT")" >> "$GITHUB_OUTPUT"
           ls -lah "$OUT"
-          "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --print-certs "$OUT" | tee artifacts/APK_SIGNATURE.txt || true
+          # apksigner verify --print-certs may emit cert info to stdout (good APK)
+          # or only errors to stderr (e.g. v2/v3-only signed APK with no v1 block).
+          # Capture BOTH so APK_SIGNATURE.txt is never empty (empty file → release
+          # upload rejects with "size must be >= 1" → Publish step fails).
+          set +e
+          CERT_OUT=$("$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --print-certs "$OUT" 2>&1)
+          APKSIGNER_EXIT=$?
+          set -e
+          printf '%s\n' "$CERT_OUT" | tee artifacts/APK_SIGNATURE.txt
+          if [ ! -s artifacts/APK_SIGNATURE.txt ]; then
+            echo "apksigner exited $APKSIGNER_EXIT with no printable certs; falling back to keytool + file listing" | tee -a artifacts/APK_SIGNATURE.txt
+            keytool -printcert -jarfile "$OUT" 2>&1 | tee -a artifacts/APK_SIGNATURE.txt || true
+            echo "" | tee -a artifacts/APK_SIGNATURE.txt
+            echo "APK: $OUT" | tee -a artifacts/APK_SIGNATURE.txt
+            echo "Build type: $BUILD_TYPE" | tee -a artifacts/APK_SIGNATURE.txt
+            echo "Signing source: $SIGNING_SOURCE" | tee -a artifacts/APK_SIGNATURE.txt
+            echo "Key alias: $BULLETIN_UPLOAD_KEY_ALIAS" | tee -a artifacts/APK_SIGNATURE.txt
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
