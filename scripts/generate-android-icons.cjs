@@ -71,10 +71,10 @@ async function main() {
   ];
   for (const d of dirs) await mkdirp(path.join(OUT_BASE, d));
 
-  // --- Adaptive-icon BACKGROUND layer (solid brand color, API 26+). -----------
-  // A 1x1 PNG is enough: Android scales the color from the drawable XML.
-  await sharp({ create: { width: 1, height: 1, channels: 4, background: DARK_BG } })
-    .png().toFile(path.join(OUT_BASE, 'mipmap-anydpi-v26/ic_launcher_background.png'));
+  // --- Adaptive-icon BACKGROUND XML (solid brand color, API 26+). --------------
+  // A color-shape drawable is enough: Android reads the solid color directly.
+  // Do NOT also write ic_launcher_background.png — cap sync generates its own
+  // 1x1 PNG there and the two collide as "Duplicate resources".
   await writeXml(
     path.join(OUT_BASE, 'mipmap-anydpi-v26/ic_launcher_background.xml'),
     XML.bg,
