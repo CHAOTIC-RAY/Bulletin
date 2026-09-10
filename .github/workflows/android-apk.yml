@@ -122,22 +122,26 @@ jobs:
           echo "APK ver  → $VITE_APK_VERSION"
           bun run build:apk-web
 
-      # Render the real Bulletin launcher + notification icons from public/logo.svg
-      # into android/app/src/main/res before cap add/sync, so the APK always carries
-      # the real Bulletin icon regardless of which Capacitor template version is used.
-      - name: Generate real Bulletin Android icons
-        run: node scripts/generate-android-icons.cjs
-
       - name: Add Capacitor Android platform (if missing)
         # The native android/ project is scaffolded by `cap add` (needs only
         # Node/npm, not the Android SDK). Without it `cap sync` fails with
-        # "android platform has not been added yet". Guard so re-runs skip it.
+        # "android platform has not been added yet".
+        # We commit android/app/src/main/res/ (the icon resources) into the repo,
+        # so android/ may exist but gradlew may not — check for gradlew specifically.
         run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
+          if [ -f "android/gradlew" ]; then
+            echo "android/gradlew found — Android platform already added, skipping cap add"
           else
-            echo "android/ already present — skipping cap add"
+            echo "android/gradlew not found — running cap add to scaffold the Android project"
+            npx cap add android
           fi
+
+      # Render the real Bulletin launcher + notification icons from public/logo.svg
+      # into android/app/src/main/res AFTER cap add, so the APK always carries
+      # the real Bulletin icon regardless of which Capacitor template version is used.
+      # Run after cap add (which may overwrite with defaults) but before cap sync.
+      - name: Generate real Bulletin Android icons
+        run: node scripts/generate-android-icons.cjs
 
       - name: Sync Capacitor Android project
         run: npx cap sync android
@@ -393,3 +397,23 @@ jobs:
           draft: ${{ env.BUILD_TYPE == 'debug' }}
           prerelease: ${{ github.ref_name == 'beta' }}
           body: ${{ steps.notes.outputs.notes }}
+
+      - name: Verify final APK state
+        run: |
+          set -euo pipefail
+          APK="${{ steps.apk.outputs.path }}"
+          echo "=== Final APK verification ==="
+          echo "APK: $APK"
+          ls -lah "$APK"
+          echo
+          echo "=== APK contents (icons) ==="
+          unzip -l "$APK" | grep -E "ic_launcher|ic_stat_bulletin" || echo "(no icon resources found in APK)"
+          echo
+          echo "=== APK signatures ==="
+          "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --verbose "$APK" 2>&1 || true
+          echo
+          echo "=== APK signing certs (if any) ==="
+          "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --print-certs "$APK" 2>&1 || true
+          echo
+          echo "=== APK package info ==="
+          "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/aapt" dump badging "$APK" 2>&1 | grep -E "package: name|versionCode|versionName|application-label" || true
