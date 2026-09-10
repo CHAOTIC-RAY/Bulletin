@@ -12,6 +12,7 @@
     "deploy": "npm run build && wrangler deploy",
     "build:apk-web": "vite build",
     "cap:sync": "npx cap sync android",
+    "generate:android-icons": "node scripts/generate-android-icons.cjs",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
@@ -40,6 +41,7 @@
     "autoprefixer": "^10.5.4",
     "esbuild": "^0.28.2",
     "postcss": "^8.5.26",
+    "sharp": "^0.35.2",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.5.4",
     "vite": "^5.4.0",

@@ -12,6 +12,14 @@ on:
         required: true
         default: true
         type: boolean
+      version_code:
+        description: "APK versionCode (monotonic integer). Bump this to force a clean install over any previously-installed Bulletin APK signed with the same key. Defaults to the workflow run number."
+        required: false
+        default: ""
+      version_name:
+        description: "APK versionName shown in the app and Play-adjacent surfaces (e.g. 1.0.315). Defaults to 1.0.<run_number>."
+        required: false
+        default: ""
   push:
     branches: [main, beta]
     # Only rebuild the APK when a change can actually affect it.
@@ -65,8 +73,8 @@ jobs:
       VITE_API_BASE_URL: ${{ github.event.inputs.api_base_url || vars.VITE_API_BASE_URL || 'https://ticstudio.workers.dev' }}
       VITE_APP_CHANNEL: ${{ github.ref_name == 'beta' && 'beta' || 'production' }}
       VITE_APK_VERSION: 1.0.${{ github.run_number }}
-      BULLETIN_VERSION_NAME: 1.0.${{ github.run_number }}
-      BULLETIN_VERSION_CODE: ${{ github.run_number }}
+      BULLETIN_VERSION_NAME: ${{ github.event.inputs.version_name || format('1.0.{0}', github.run_number) }}
+      BULLETIN_VERSION_CODE: ${{ github.event.inputs.version_code || github.run_number }}
 
     steps:
       - name: Checkout
@@ -113,6 +121,12 @@ jobs:
           echo "Channel  → $VITE_APP_CHANNEL"
           echo "APK ver  → $VITE_APK_VERSION"
           bun run build:apk-web
+
+      # Render the real Bulletin launcher + notification icons from public/logo.svg
+      # into android/app/src/main/res before cap add/sync, so the APK always carries
+      # the real Bulletin icon regardless of which Capacitor template version is used.
+      - name: Generate real Bulletin Android icons
+        run: node scripts/generate-android-icons.cjs
 
       - name: Add Capacitor Android platform (if missing)
         # The native android/ project is scaffolded by `cap add` (needs only
@@ -222,15 +236,12 @@ jobs:
       - name: Assemble APK
         working-directory: android
         run: |
-          chmod +x gradlew || true
+          set -euo pipefail
+          chmod +x gradlew
           if [ "$BUILD_TYPE" = "release" ]; then
-            gradle assembleRelease --no-daemon --stacktrace \
-              -PBULLETIN_VERSION_CODE=$BULLETIN_VERSION_CODE \
-              -PBULLETIN_VERSION_NAME=$BULLETIN_VERSION_NAME
+            gradle assembleRelease --no-daemon --quiet
           else
-            gradle assembleDebug --no-daemon --stacktrace \
-              -PBULLETIN_VERSION_CODE=$BULLETIN_VERSION_CODE \
-              -PBULLETIN_VERSION_NAME=$BULLETIN_VERSION_NAME
+            gradle assembleDebug --no-daemon --quiet
           fi
 
       - name: Locate & rename APK
@@ -248,20 +259,45 @@ jobs:
           echo "path=$OUT" >> "$GITHUB_OUTPUT"
           echo "name=$(basename "$OUT")" >> "$GITHUB_OUTPUT"
           ls -lah "$OUT"
-          # apksigner verify --print-certs may emit cert info to stdout (good APK)
-          # or only errors to stderr (e.g. v2/v3-only signed APK with no v1 block).
-          # Capture BOTH so APK_SIGNATURE.txt is never empty (empty file → release
-          # upload rejects with "size must be >= 1" → Publish step fails).
+
+      # Verify the produced APK is actually signed and carries the real Bulletin icons.
+      # Without this, a misconfigured signing step can silently ship an unsigned or
+      # icon-missing APK that installs as "package invalid" / wrong icon.
+      - name: Verify APK signature + icons
+        if: env.BUILD_TYPE == 'release'
+        run: |
+          set -euo pipefail
+          APK="${{ steps.apk.outputs.path }}"
+          echo "Verifying $APK ..."
+          # 1) Signature check
+          VERIFY=$("$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --verbose "$APK" 2>&1) || true
+          echo "$VERIFY"
+          if ! echo "$VERIFY" | grep -q "Verified"; then
+            echo "::error::APK is NOT verified by apksigner — signing likely failed"
+            exit 1
+          fi
+          # 2) Icon resources present (launcher + notification)
+          if ! unzip -l "$APK" | grep -q "res/mipmap-xxxhdpi/ic_launcher.png"; then
+            echo "::error::APK missing res/mipmap-xxxhdpi/ic_launcher.png — real icon not packaged"
+            exit 1
+          fi
+          if ! unzip -l "$APK" | grep -q "res/drawable/ic_stat_bulletin.png"; then
+            echo "::error::APK missing res/drawable/ic_stat_bulletin.png — notification icon not packaged"
+            exit 1
+          fi
+          echo "APK verified: signed + carries real Bulletin icons"
+
+          # Write signature info for the release notes after verification passes.
           set +e
-          CERT_OUT=$("$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --print-certs "$OUT" 2>&1)
+          CERT_OUT=$("$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --print-certs "$APK" 2>&1)
           APKSIGNER_EXIT=$?
           set -e
           printf '%s\n' "$CERT_OUT" | tee artifacts/APK_SIGNATURE.txt
           if [ ! -s artifacts/APK_SIGNATURE.txt ]; then
-            echo "apksigner exited $APKSIGNER_EXIT with no printable certs; falling back to keytool + file listing" | tee -a artifacts/APK_SIGNATURE.txt
-            keytool -printcert -jarfile "$OUT" 2>&1 | tee -a artifacts/APK_SIGNATURE.txt || true
+            echo "apksigner exited $APKSIGNER_EXIT with no printable certs; falling back to keytool" | tee -a artifacts/APK_SIGNATURE.txt
+            keytool -printcert -jarfile "$APK" 2>&1 | tee -a artifacts/APK_SIGNATURE.txt || true
             echo "" | tee -a artifacts/APK_SIGNATURE.txt
-            echo "APK: $OUT" | tee -a artifacts/APK_SIGNATURE.txt
+            echo "APK: $APK" | tee -a artifacts/APK_SIGNATURE.txt
             echo "Build type: $BUILD_TYPE" | tee -a artifacts/APK_SIGNATURE.txt
             echo "Signing source: $SIGNING_SOURCE" | tee -a artifacts/APK_SIGNATURE.txt
             echo "Key alias: $BULLETIN_UPLOAD_KEY_ALIAS" | tee -a artifacts/APK_SIGNATURE.txt
@@ -288,19 +324,19 @@ jobs:
           if [ -z "$RAW" ]; then CHANGE="- (no commits in range)";
           else
             MAP=$(printf '%s\n' "$RAW" \
-              | grep -viE '^(chore|ci|merge|bump|wip|deps|revert)[ :]' \
-              | awk '
-                /^[aA]dd|^feat|new|implement/i { sub(/^[^:!]*[:!][ ]*/,""); gsub(/^[ \t]+/,""); print "ADD::" $0; next }
-                /^[fF]ix|bug|patch/i            { sub(/^[^:!]*[:!][ ]*/,""); gsub(/^[ \t]+/,""); print "FIX::" $0; next }
-                /^[cC]hange|refactor|update|tweak/i { sub(/^[^:!]*[:!][ ]*/,""); gsub(/^[ \t]+/,""); print "CHG::" $0; next }
-                { sub(/^[^:!]*[:!][ ]*/,""); gsub(/^[ \t]+/,""); print "OTH::" $0 }' \
-              | awk '!seen[$0]++' | head -40)
+              | grep -viE '^(chore|ci|merge|bump|wip|deps|revert)[ :]'\'' \
+              | awk '\''
+                /^[aA]dd|^feat|new|implement/i { sub(/^[^:!]*[:!][ ]*/, ""); gsub(/^[ 	]+/, ""); print "ADD::" $0; next }
+                /^[fF]ix|bug|patch/i            { sub(/^[^:!]*[:!][ ]*/, ""); gsub(/^[ 	]+/, ""); print "FIX::" $0; next }
+                /^[cC]hange|refactor|update|tweak/i { sub(/^[^:!]*[:!][ ]*/, ""); gsub(/^[ 	]+/, ""); print "CHG::" $0; next }
+                { sub(/^[^:!]*[:!][ ]*/, ""); gsub(/^[ 	]+/, ""); print "OTH::" $0 }'\'' \
+              | awk '\''!seen[$0]++\'' | head -40)
             NA=$(printf '%s\n' "$MAP" | grep -c '^ADD::' || true)
             NC=$(printf '%s\n' "$MAP" | grep -c '^CHG::' || true)
             NF=$(printf '%s\n' "$MAP" | grep -c '^FIX::' || true)
             NT=$(printf '%s\n' "$MAP" | grep -c '.' || true)
             SUMMARY="📦 ${NT} notable commits — ✨ ${NA} added · 🔧 ${NC} changed · 🐛 ${NF} fixed"
-            BODY=$(printf '%s\n' "$MAP" | awk -F'::' '
+            BODY=$(printf '%s\n' "$MAP" | awk -F'::'\''
                 $1=="ADD"{add=add"\n- ✨ "$2}
                 $1=="CHG"{chg=chg"\n- 🔧 "$2}
                 $1=="FIX"{fix=fix"\n- 🐛 "$2}
@@ -310,7 +346,7 @@ jobs:
                   if(chg!=""){print "**Changed**"; print substr(chg,2)}
                   if(fix!=""){print "**Fixed**"; print substr(fix,2)}
                   if(oth!=""){print "**Other**"; print substr(oth,2)}
-                }')
+                }'\'')
             CHANGE=$(printf '%s\n\n%s\n' "$SUMMARY" "$BODY")
           fi
           {

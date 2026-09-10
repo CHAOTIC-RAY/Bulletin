@@ -24,10 +24,15 @@ const config: CapacitorConfig = {
     allowMixedContent: true,
     backgroundColor: "#18181B",
     webContentsDebuggingEnabled: false,
+    // Real Bulletin launcher + notification icons generated from public/logo.svg
+    // into android/app/src/main/res by `npx node scripts/gen-android-icon.cjs`.
+    icon: "ic_launcher",
+    roundIcon: "ic_launcher_round",
+    adaptiveIconBackgroundColor: "#0E0E0C",
   },
   plugins: {
     LocalNotifications: {
-      smallIcon: "ic_stat_icon_config_sample",
+      smallIcon: "ic_stat_bulletin",
       iconColor: "#FFB000",
     },
   },
