@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { synthesizePolly } from "./src/lib/pollyCore";
 import { fetchEnrichedFeed } from "./src/lib/feedEnrich";
+import { safeFetchPublicUrl } from "./src/lib/safeFetchPublicUrl";
 
 async function startServer() {
   const app = express();
@@ -87,8 +88,7 @@ async function startServer() {
       if (!url || typeof url !== "string") {
         return res.status(400).json({ error: "URL is required" });
       }
-      const decodedUrl = decodeURIComponent(url);
-      const response = await fetch(decodedUrl, {
+      const response = await safeFetchPublicUrl(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
           Accept: "application/xml, text/xml, */*",
