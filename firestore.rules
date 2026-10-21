@@ -6,7 +6,7 @@ service cloud.firestore {
     // server identity should create, update, sweep, or delete shared cache docs.
     // Until server-side authenticated writes are configured, fail closed.
     match /pollyCache/{hash} {
-      allow get, list: if hash.matches('^[a-fA-F0-9]{40}$');
+      allow get: if hash.matches('^[a-fA-F0-9]{40}$');
       allow create, update, delete: if false;
     }
 
