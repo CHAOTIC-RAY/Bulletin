@@ -252,6 +252,8 @@ export class BulletinTts {
 
     try {
       let ci = 0;
+      // Prefetch one chunk during current playback to hide network latency.
+      let prefetched: Promise<Blob | null> | null = null;
       const playNextChunk = async () => {
         if (!this.playing || playId !== this.currentPlayId || ci >= chunks.length) {
           if (playId === this.currentPlayId) {
@@ -263,8 +265,13 @@ export class BulletinTts {
         const text = chunks[ci];
         this.cb.onSubtitle?.(text);
         try {
-          const blob = await this.fetchDhivehiAudio(text);
+          const pending = prefetched;
+          prefetched = null;
+          const blob = (pending ? await pending : null) || await this.fetchDhivehiAudio(text);
           if (!this.playing || playId !== this.currentPlayId) return;
+          if (ci + 1 < chunks.length) {
+            prefetched = this.fetchDhivehiAudio(chunks[ci + 1]).catch(() => null);
+          }
           const url = URL.createObjectURL(blob);
           const audio = new Audio(url);
           audio.volume = Math.min(1, Math.max(0, this.volume));
