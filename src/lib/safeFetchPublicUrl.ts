@@ -6,7 +6,7 @@
 const MAX_REDIRECTS = 4;
 const DEFAULT_MAX_BYTES = 2_000_000;
 
-function validatePublicUrl(value: string | URL): URL {
+export function validatePublicUrl(value: string | URL): URL {
   let url: URL;
   try { url = value instanceof URL ? new URL(value.href) : new URL(value); }
   catch { throw new Error("Invalid feed URL"); }
