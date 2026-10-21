@@ -243,6 +243,10 @@ async function handleApi(request: Request, env: any, ctx: ExecutionContext): Pro
       // Write to the edge cache so every other user (and this user's next read)
       // reuses the generated MP3 instead of regenerating it.
       const ct = upstream.headers.get("Content-Type") || "audio/mpeg";
+      if (!ct.toLowerCase().startsWith("audio/")) {
+        await upstream.body?.cancel();
+        return Response.json({ error: "Dhivehi TTS upstream returned a non-audio response" }, { status: 502, headers: { "Access-Control-Allow-Origin": "*" } });
+      }
       const resp = new Response(upstream.body, {
         headers: {
           "Content-Type": ct,
