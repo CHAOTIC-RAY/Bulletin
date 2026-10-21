@@ -2,11 +2,13 @@
 
 /// <reference types="@cloudflare/workers-types" />
 
+import { safeFetchPublicUrl } from "./lib/safeFetchPublicUrl";
+
 function isApiRequest(pathname: string): boolean {
   return pathname.startsWith("/api/");
 }
 
-async function handleApi(request: Request, env: any): Promise<Response> {
+async function handleApi(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
 
   if (url.pathname === "/api/health") {
@@ -56,7 +58,7 @@ async function handleApi(request: Request, env: any): Promise<Response> {
       return Response.json({ error: "URL is required" }, { status: 400 });
     }
     try {
-      const upstream = await fetch(decodeURIComponent(target), {
+      const upstream = await safeFetchPublicUrl(target, {
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -108,7 +110,7 @@ async function handleApi(request: Request, env: any): Promise<Response> {
     const started = Date.now();
     try {
       const { fetchEnrichedFeed } = await import("./lib/feedEnrich");
-      const feed = await fetchEnrichedFeed(decodeURIComponent(target));
+      const feed = await fetchEnrichedFeed(target);
       // Never return an empty feed as an error — surface what we got so the
       // client can fall back gracefully instead of the whole request 503ing.
       const resp = new Response(JSON.stringify(feed), {
@@ -192,8 +194,10 @@ async function handleApi(request: Request, env: any): Promise<Response> {
     if (!text) {
       return Response.json({ error: "Text (q) is required" }, { status: 400 });
     }
-    const gender = url.searchParams.get("g") || "f";
-    const cacheKey = `${gender}|${text}`;
+    if (text.length > 2000) return Response.json({ error: "Dhivehi TTS text must be 2,000 characters or fewer" }, { status: 413 });
+    const normalizedText = text.normalize("NFC").replace(/\s+/g, " ").trim();
+    const gender = url.searchParams.get("g") === "m" ? "m" : "f";
+    const cacheKey = `${gender}|${normalizedText}`;
     const cacheKeyHash = await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(cacheKey)
@@ -220,7 +224,7 @@ async function handleApi(request: Request, env: any): Promise<Response> {
 
     try {
       const upstream = await fetch(
-        `https://dhivehi.mv/tools/tts/data/?g=${encodeURIComponent(gender)}&q=${encodeURIComponent(text)}`,
+        `https://dhivehi.mv/tools/tts/data/?g=${encodeURIComponent(gender)}&q=${encodeURIComponent(normalizedText)}`,
         {
           headers: {
             "User-Agent":
@@ -253,7 +257,7 @@ async function handleApi(request: Request, env: any): Promise<Response> {
         const [cacheStream, respStream] = resp.body?.tee() ?? [resp.body, null];
         if (cacheStream) {
           const cacheCopy = new Response(cacheStream, { headers: resp.headers });
-          await cache.put(cacheUrl, cacheCopy);
+          ctx.waitUntil(cache.put(cacheUrl, cacheCopy).catch(() => {}));
         }
         return respStream ? new Response(respStream, { headers: resp.headers }) : resp;
       } catch {
@@ -274,7 +278,7 @@ export default {
   async fetch(request: Request, env: any, _ctx: unknown): Promise<Response> {
     const url = new URL(request.url);
     if (isApiRequest(url.pathname)) {
-      return handleApi(request, env);
+      return handleApi(request, env, _ctx as ExecutionContext);
     }
     // Static assets (built SPA) are served automatically by the Workers
     // Static Assets binding configured in wrangler.jsonc. This branch only runs
