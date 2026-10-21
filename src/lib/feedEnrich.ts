@@ -16,7 +16,7 @@ import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { isJunkFeedItem } from "./feedStorage";
 import { cleanArticleHtml } from "./feedSanitize";
-import { safeFetchPublicUrl } from "./safeFetchPublicUrl";
+import { safeFetchPublicUrl, validatePublicUrl } from "./safeFetchPublicUrl";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -910,6 +910,8 @@ export async function recoverFullTextViaGoogleNews(title: string): Promise<strin
 }
 
 export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> {
+  // Validate the original URL before it can be wrapped in third-party proxy URLs.
+  feedUrl = validatePublicUrl(feedUrl).toString();
   if (isTelegramUrl(feedUrl)) {
     return fetchTelegramFeed(feedUrl);
   }
