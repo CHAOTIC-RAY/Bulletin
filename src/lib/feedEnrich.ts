@@ -16,6 +16,7 @@ import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { isJunkFeedItem } from "./feedStorage";
 import { cleanArticleHtml } from "./feedSanitize";
+import { safeFetchPublicUrl, validatePublicUrl } from "./safeFetchPublicUrl";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -194,7 +195,7 @@ function expandSummaryToFullArticle(title: string, summary: string, source: stri
 }
 
 async function fetchText(url: string, asJson = false): Promise<string> {
-  const res = await fetch(url, {
+  const res = await safeFetchPublicUrl(url, {
     headers: {
       "User-Agent": UA,
       Accept: asJson
@@ -312,7 +313,7 @@ async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
   // bot-blocked the way a browser is, so for most sites this returns the full
   // HTML in well under a second — no third-party render service needed.
   try {
-    const res = await fetch(normalizedUrl, { headers, signal: AbortSignal.timeout(8000) });
+    const res = await safeFetchPublicUrl(normalizedUrl, { headers, signal: AbortSignal.timeout(8000) });
     if (res.ok) {
       const html = await res.text();
       if (html && html.length > 600) return html;
@@ -324,7 +325,7 @@ async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
   // SECONDARY: public CORS proxies (covers bot-protected Maldives sites etc.)
   for (const mk of PROXIES) {
     try {
-      const res = await fetch(mk(normalizedUrl), { signal: AbortSignal.timeout(5000) });
+      const res = await safeFetchPublicUrl(mk(normalizedUrl), { signal: AbortSignal.timeout(5000) });
       if (res.ok) {
         const html = await res.text();
         if (html && html.length > 600) return html;
@@ -338,7 +339,7 @@ async function fetchPageHtmlWithProxies(targetUrl: string): Promise<string> {
   // render+fetch (multi-second, rate-limited) so it is kept strictly as a final
   // fallback for pages the direct fetch / proxies couldn't get.
   try {
-    const jinaRes = await fetch(`https://r.jina.ai/${normalizedUrl}`, {
+    const jinaRes = await safeFetchPublicUrl(`https://r.jina.ai/${normalizedUrl}`, {
       headers: { "User-Agent": UA, Accept: "text/markdown" },
       signal: AbortSignal.timeout(12000),
     });
@@ -909,6 +910,8 @@ export async function recoverFullTextViaGoogleNews(title: string): Promise<strin
 }
 
 export async function fetchEnrichedFeed(feedUrl: string): Promise<EnrichedFeed> {
+  // Validate the original URL before it can be wrapped in third-party proxy URLs.
+  feedUrl = validatePublicUrl(feedUrl).toString();
   if (isTelegramUrl(feedUrl)) {
     return fetchTelegramFeed(feedUrl);
   }

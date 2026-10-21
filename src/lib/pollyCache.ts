@@ -29,17 +29,9 @@
 //  - OPTIONAL native safety net: also set a 7-day Firestore TTL on `createdAt`
 //    in the console (TTL deletes are FREE and don't count against write quota).
 //
-// SECURITY MODEL: the cache holds only PUBLIC news audio keyed by content hash
-// (no user data). Lock Security Rules to the `pollyCache` collection + the meta
-// doc only:
-//   rules_version = '2';
-//   service cloud.firestore {
-//     match /databases/{db}/documents {
-//       match /pollyCache/{hash} { allow read, write: if true; }
-//       match /pollyCacheMeta/{any} { allow read, write: if true; }
-//     }
-//   }
-//
+// SECURITY: Firestore public-client writes are disabled by firestore.rules. Reads of
+// existing cache entries remain best-effort; new writes/sweeps require a trusted
+// server identity. Never loosen rules to anonymous write access.
 // DISABLED BY DEFAULT: if FIREBASE_PROJECT_ID / FIREBASE_API_KEY are unset, every
 // function is a no-op and the app falls straight through to live Polly — no
 // breakage, no crash. See README "Firebase TTS cache setup".

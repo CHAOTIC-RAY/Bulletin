@@ -13,7 +13,8 @@
     "build:apk-web": "vite build",
     "cap:sync": "npx cap sync android",
     "generate:android-icons": "node scripts/generate-android-icons.cjs",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
