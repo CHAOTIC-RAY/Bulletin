@@ -1,3 +1,5 @@
+> **Superseded security note (2026-10):** The historical rules and test scenarios below describe the previous public-write design and are not the active policy. `firestore.rules` now denies all client-side cache writes/deletes; only reads of known cache keys are allowed. Do not apply the old rules or run the old permission tests as an acceptance standard. A trusted server-side writer and updated emulator tests are required before shared Polly cache writes are re-enabled.
+
 # Security Specification for Firestore Caching Layer
 
 This document defines the core data invariants and security specifications for the unauthenticated Firestore-backed Polly TTS cache. It includes twelve targeted payload designs ("Dirty Dozen") designed to challenge and test these limits.
