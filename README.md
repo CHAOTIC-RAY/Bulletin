@@ -95,59 +95,22 @@ The free tier covers ~1 million neural characters/month (~10–15 hours of audio
 > Microsoft (returns 401/403 as of 2026-08), so it was replaced by AWS Polly for the
 > cloud-quality path and browser WebSpeech for the zero-config free path.
 
-## Firebase TTS cache (shared, cross-device, cuts Polly cost)
+## Firebase TTS cache (shared, cross-device)
 
-Once a news sentence is synthesized with Polly, the MP3 is stored in **Firebase
-Firestore** keyed by a hash of (text + voice + engine + rate). The next user — on
-*any* device — gets the cached MP3 instead of re-synthesizing, so repeat plays are
-instant and AWS Polly is only ever billed once per unique sentence.
+The app can read existing Polly audio entries from Firestore and falls back to live
+AWS Polly synthesis when no cache entry is available. **Anonymous Firestore writes
+are intentionally disabled in the current security rules.** The previous public
+write/delete rules allowed anyone to poison or erase shared cache records.
 
-### 1. Create a Firebase project (free Spark plan)
-- https://console.firebase.google.com → **Add project** (free Spark = the free tier).
-- **Build → Firestore Database → Create database** → start in **test mode** (we lock
-  it down with rules next), region = nearest.
+To enable new shared cache entries safely, configure a trusted server-side Firebase
+identity and route cache writes/sweeps through that backend. Do not restore public
+Firestore write permissions or put service-account credentials in the browser or
+repository. Until that backend is configured, Polly synthesis still works, but new
+audio may not persist to the shared Firestore cache.
 
-### 2. Add a Web App and grab the API key + Project ID
-- **Project settings → Your apps → Web app** → register.
-- Copy the **Web API Key** and the **Project ID** (top of Project settings).
-
-### 3. Security Rules (lock to the cache collection only)
-In **Firestore → Rules**, paste:
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{db}/documents {
-    match /pollyCache/{hash} { allow read, write: if true; }
-    match /pollyCacheMeta/{any} { allow read, write: if true; }
-  }
-}
-```
-The cache holds only public news audio (no user data), so open read/write scoped to
-these two paths is safe.
-
-### 4. Give the keys to the app
-**Local dev** — copy `.dev.vars.example` to `.dev.vars` and fill it in (it's gitignored).
-Then `npm run dev`. The cache auto-enables when both values are present.
-
-**Cloudflare Worker (prod)** — set them as secrets (never in the repo):
-```bash
-npx wrangler secret put FIREBASE_API_KEY
-npx wrangler secret put FIREBASE_PROJECT_ID
-```
-
-### 5. Weekly self-reset (stays inside the free tier)
-A meta doc tracks the doc count. Every **7 days**, if the cache exceeds
-`POLLY_CACHE_MAX_DOCS` (default **50,000 ≈ 500 MB**, well under the 1 GB free limit),
-the app deletes the **oldest `2000` docs** (oldest news first). The sweep is lazy —
-it runs inside the `/api/tts/polly` route, so there is **no Cloud Function or
-scheduler to set up**. Each sweep only reads + deletes 2000 docs, comfortably within
-the 50k reads/day free allowance; any backlog converges over subsequent weeks.
-- Optional native safety net: add a **7-day TTL** on the `createdAt` field (Firestore
-  → Build → Firestore → the collection → **Automate** → TTL). TTL deletes are **free**
-  and don't count against your write quota.
-- Tune the cap: `POLLY_CACHE_MAX_DOCS=40000 npx wrangler secret put POLLY_CACHE_MAX_DOCS`.
-
-The `/api/health` endpoint reports `"pollyCache": true/false` so you can confirm it's live.
+For local development, AWS Polly credentials belong in ignored local environment
+files. In Cloudflare Workers, set AWS credentials as Worker secrets. Never commit
+real credentials or place them in `VITE_*` variables.
 
 ## Notes
 - Standalone mode fetches RSS via a public RSS→JSON proxy in `feedClient.ts`, with
